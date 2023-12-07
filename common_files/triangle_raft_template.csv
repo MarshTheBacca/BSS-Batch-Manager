@@ -1,0 +1,33 @@
+Line Number,Value,Is Var?,Table-Relevant?,Name,Type,Names,Allowed Values
+1,I/O,False,False,None,str,None,None
+2,./seed/25,True,True,Seed Size,int/str,None,>3
+3,../output_files/,True,False,Output Prefix,str,None,None
+4,dashes,False,False,None,str,None,None
+5,Network Properties,False,False,None,str,None,None
+6,1000,True,True,Number of Rings,int,None,>0
+7,4       10,True,True,Basic Ring Size Limits,dual int,Lower Ring Size Limit;Upper Ring Size Limit,>3;>3
+8,2DC,True,True,Geometry Code,str,None,2DC
+9,dashes,False,False,None,str,None,None
+10,Monte Carlo Process,False,False,None,str,None,None
+11,0,True,True,Random Seed,int,None,>-1
+12,0.0001,True,True,Temperature,float,None,>0
+13,dashes,False,False,None,str,None,None
+14,Potential Model,False,False,None,str,None,None
+15,1.0     1.0,True,True,M-X (k and r0),dual float,M-X Force Constant;M-X r0,>0;>0
+16,1.0     120.0,True,True,X-X (k and r0),dual float,X-X Force Constant;X-X r0,>0;>0
+17,0.0     180.0,True,True,M-M (k and r0),dual float,M-M Force Constant;M-M r0,>0;>0
+18,0.1     2.0,True,True,L-J (k and r0),dual float,L-J Force Constant;L-J r0,>0;>0
+19,10.0    20.0,True,True,Constr (k and r0),dual float,Constr Force Constant;Constr r0,>0;>0
+20,dashes,False,False,None,str,None,None
+21,Minimisation Control,False,False,None,str,None,None
+22,0       1,True,True,Global Optimisation Before/After Simulation,dual bool,Global Optimisation Before Simulation;Global Optimisation After Simulation,0;1
+23,10000,True,True,Maximum Interactions,int,None,>0
+24,0.5,True,True,Tau (backtracking line search coefficient),float,None,>0
+25,1E-07,True,True,Convergence Test,float,None,>0
+26,5,True,True,Size of Local Region,int,None,>0
+27,dashes,False,False,None,str,None,None
+28,Additional Options,False,False,None,str,None,None
+29,0,True,True,Full Bond Length / Angle Distributions,bool,None,0;1
+30,0,True,True,Ring Areas,bool,None,0;1
+31,0,True,True,Convert to Bilayer,bool,None,0;1
+32,0,True,True,Cluster and Percolation Analysis (2DS),bool,None,0;1
