@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from tzlocal import get_localzone
 
-from utils import get_config_options
+from utils import get_config_options, initialise
 from utils import valid_int
 from utils import print_table, import_batches, batch_table, export_batches
 from utils import Config
@@ -26,6 +26,8 @@ number_orders={1:"first", 2:"second", 3:"thrid", 4:"fourth", 5:"fifth", 6:"sixth
     # Way of generating grahpics as .svg files automatically
     # Extract time to complete batch?
     # Extract % success/failiure of batch?
+    
+    # Making files works, batch submission not unzipping or initialising on coulson
 
     #   Should Config have another function to import from .inpt? or stick to .csv?
     
@@ -47,9 +49,10 @@ def get_local_constants(cwd, program_type):
 
 
 cwd = os.path.realpath(os.path.dirname(__file__))
+initialise(cwd)
 local_tz = get_localzone()
 local_tz_string = datetime.now(local_tz).tzname()
-coulson_username, receive_ip, receive_username, output_path = get_config_options(os.path.join(cwd, "config.csv"), [0, 1, 2, 3], cwd)
+coulson_username, output_path = get_config_options(os.path.join(cwd, "config.csv"), [0, 1], cwd)
 while True:
     option = valid_int("What would you like to do?\n1) Generate Batches\n2) Submit Batches to Coulson\n"\
                        "3) Analyse Batches\n4) Exit\n", 1, 4)
@@ -115,7 +118,7 @@ while True:
                     option = valid_int("Which batch would you like to submit?\n", 1, exit_option)
                     if option != exit_option:
                         selected_batch = batches[batch_names.index(batches_table[option-1][0])]
-                        selected_batch.submit(coulson_username, batch_submit_script_path, output_path, receive_username, receive_ip)
+                        selected_batch.submit(coulson_username, batch_submit_script_path, output_path)
                         export_batches("batch_history.txt", batches)
                         print(f"\nSuccessfully submitted {selected_batch.name}!")
                     else:

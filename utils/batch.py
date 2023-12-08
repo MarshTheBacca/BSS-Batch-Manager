@@ -3,7 +3,6 @@ from zipfile import ZipFile
 from datetime import datetime, timezone
 
 from .other_utils import background_process
-from .file_utils import fast_scandir
 
 program_type_constants={"netmc": {"program_name":"netmc",
                             "exec_file_name":"netmc.x",
@@ -47,25 +46,22 @@ class Batch:
         else:
             return self.last_ran < other.last_ran
         
-    def submit(self, coulson_username, submit_script_path, output_files_path, receive_username = False, receive_ip = False):
-        if receive_username:
-            background_process(["python", submit_script_path, 
-                                "-n", self.name, 
-                                "-x", str(self.num_runs), 
-                                "-y", self.type, 
-                                "-p", self.path,
-                                "-o", output_files_path, 
-                                "-u", coulson_username, 
-                                "-r", receive_username, 
-                                "-t", receive_ip])
-        else:
-            background_process(["python", submit_script_path, 
-                                "-n", self.name, 
-                                "-x", str(self.num_runs), 
-                                "-y", self.type, 
-                                "-p", self.path,
-                                "-o", output_files_path, 
-                                "-u", coulson_username])
+    def submit(self, coulson_username, submit_script_path, output_files_path):
+        #print("python", submit_script_path, 
+        #                    "-n", self.name, 
+        #                    "-x", str(self.num_runs), 
+        #                    "-y", self.type, 
+        #                    "-p", self.path,
+        #                    "-o", output_files_path, 
+        #                    "-u", coulson_username)
+        
+        background_process(["python", submit_script_path, 
+                            "-n", self.name, 
+                            "-x", str(self.num_runs), 
+                            "-y", self.type, 
+                            "-p", self.path,
+                            "-o", output_files_path, 
+                            "-u", coulson_username])
         self.num_runs += 1
         self.last_ran = datetime.now(timezone.utc)
         self.run_times.append(self.last_ran)
@@ -90,9 +86,6 @@ class Batch:
             self.num = number
             self.path = os.path.join(path, f"run_{number}")
             
-        def handle_broken(self):
-            job_paths = fast_scandir(self.path)
-            print(job_paths)
     
     
     

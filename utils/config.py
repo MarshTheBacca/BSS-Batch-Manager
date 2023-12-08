@@ -69,14 +69,23 @@ class Config:
                 string += element.string+"\n"
             elif type(element) == Config.Var:
                 if element.type in ("int", "float", "str", "bool"):
-                    string += str(element.value) + "\t\t"+ element.name +"\n"
+                    if self.valid_func == int:
+                        string += str(element.value) + "\t\t" + element.name + "\n"
+                    else:
+                        string += str(round(element.value, 5)) + "\t\t" + element.name + "\n"
                 elif element.type == "int/str":
                     string += element.value_str + str(element.value) + "\t\t" + element.name + "\n"
                 elif element.type in ("dual int", "dual float", "dual bool"):
                     if not element.is_second:
-                        string += str(element.value) + "\t"
+                        if element.valid_func == int:
+                            string += str(element.value) + "\t"
+                        else:
+                            string += str(round(element.value, 5)) + "\t"
                     else:
-                        string += str(element.value) + "\t" + element.comb_name + "\n"
+                        if element.valid_str == int:
+                            string += str(element.value) + "\t" + element.comb_name + "\n"
+                        else:
+                            string += str(round(element.value, 5)) + "\t" + element.comb_name + "\n"
         return string.expandtabs(8)
             
     def generate_batch(self, cvas, var_indexes, save_path, batch_name):
@@ -120,7 +129,6 @@ class Config:
             self.relevant = relevant
             self.type = var_type
             self.allowed_values, self.allowed_values_string, self.modes = Config.Var.allowed(allowed_values, var_type, self.valid_func)
-            #self.modes = modes[self.type]
             
         def convert_value(value, var_type):
             if var_type == "str":

@@ -32,7 +32,7 @@ def import_2D(file, del_indexes = None, remove_blanks = True):
     string = f.read()
     f.close()
     if string == "" or string == "\n":
-        return [[]]
+        return None
     (temp,final) = string.split("\n"),[]
     for line in temp:
         if line != "":
@@ -89,13 +89,14 @@ def import_batches(file, output_path, path = os.path.join(os.getcwd(), "batches"
         batches.extend([[batch, os.path.join(path, prog, f"{batch}.zip"), [], prog] for batch in prog_batches])  
         
     batch_history = import_2D(file)
-    batch_history = converter(batch_history, data_types = ("str", "str", "datetime"), datetime_format = "%Y %a %d %b %H:%M:%S %Z")
-    for log in batch_history:
-        batch_names = [batch[0] for batch in batches]
-        if log[0] not in batch_names:
-            batches.append([log[0], "deleted", [log[2]], log[1]])
-        else:
-            batches[batch_names.index(log[0])][2].append(log[2])
+    if batch_history:
+        batch_history = converter(batch_history, data_types = ("str", "str", "datetime"), datetime_format = "%Y %a %d %b %H:%M:%S %Z")
+        for log in batch_history:
+            batch_names = [batch[0] for batch in batches]
+            if log[0] not in batch_names:
+                batches.append([log[0], "deleted", [log[2]], log[1]])
+            else:
+                batches[batch_names.index(log[0])][2].append(log[2])
     # batches = [[name, path, run_times, type]]       
     batches = [Batch(*(batch + [output_path])) for batch in batches]
     return batches
