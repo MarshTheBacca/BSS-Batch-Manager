@@ -69,7 +69,7 @@ class Config:
                 string += element.string+"\n"
             elif type(element) == Config.Var:
                 if element.type in ("int", "float", "str", "bool"):
-                    if self.valid_func == int:
+                    if element.valid_func == int:
                         string += str(element.value) + "\t\t" + element.name + "\n"
                     else:
                         string += str(round(element.value, 5)) + "\t\t" + element.name + "\n"
