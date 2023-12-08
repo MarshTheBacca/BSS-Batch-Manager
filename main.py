@@ -7,16 +7,14 @@ from utils import valid_int
 from utils import print_table, import_batches, batch_table, export_batches
 from utils import Config
 
-program_type_constants={1:{"input_file_name":"netmc.inpt",
-                           "program_name":"netmc",
-                           "print_name":"NetMC",
-                           "remote_path_pattern":'"*/netmc_remote"'},
+program_type_constants={1:{"program_name":"netmc",
+                           "print_name":"NetMC"},
                         
-                        2:{"input_file_name":"mx2.inpt",
-                           "program_name":"triangle_raft",
-                           "print_name":"Triangle Raft",
-                           "remote_path_pattern":'"*/triangle_raft_remote"'}}
+                        2:{"program_name":"netmc_pores",
+                           "print_name":"NetMC Pores"},
 
+                        3:{"program_name":"triangle_raft",
+                           "print_name":"Triangle Raft"}}
 
 number_orders={1:"first", 2:"second", 3:"thrid", 4:"fourth", 5:"fifth", 6:"sixth", 7:"seventh", 8:"eigth", 9:"nineth", 10:"tenth"}
 
@@ -33,34 +31,30 @@ number_orders={1:"first", 2:"second", 3:"thrid", 4:"fourth", 5:"fifth", 6:"sixth
     
     
 def get_local_constants(cwd, program_type):
-    global program_name, program_print_name
-    global input_path, output_path, seeds_path, exec_path, common_files_path, batch_submit_script_path
+    global program_name
+    global input_path, output_path, batch_submit_script_path
     
     #Program type constants, 1 = NetMC, 2 = Triangle Raft
     program_name = program_type_constants[program_type]["program_name"]
-    program_print_name = program_type_constants[program_type]["print_name"]
     
     #Local constants
     input_path = os.path.join(cwd, "batches", program_name)
-    common_files_path = os.path.join(cwd, "common_files")
-    seeds_path = os.path.join(cwd, "common_files", "triangle_raft_seeds")
-    exec_path = os.path.join(cwd, "common_files", f"coulson_{program_name}.x")
     batch_submit_script_path = os.path.join(cwd, "utils", "batch_submit.py")
 
 
 cwd = os.path.realpath(os.path.dirname(__file__))
-initialise(cwd)
+coulson_username, output_path = get_config_options(os.path.join(cwd, "config.csv"), [0, 1], cwd)
+initialise(cwd, output_path)
 local_tz = get_localzone()
 local_tz_string = datetime.now(local_tz).tzname()
-coulson_username, output_path = get_config_options(os.path.join(cwd, "config.csv"), [0, 1], cwd)
 while True:
     option = valid_int("What would you like to do?\n1) Generate Batches\n2) Submit Batches to Coulson\n"\
                        "3) Analyse Batches\n4) Exit\n", 1, 4)
     if option == 1:
         while True:
             option = valid_int("What type of program would you like to create batches for?"\
-                            "\n1) NetMC\n2) Triangle Raft\n3) Exit\n", 1, 3)
-            if option == 3:
+                            "\n1) NetMC\n2) NetMC Pores\n3) Triangle Raft\n4) Exit\n", 1, 4)
+            if option == 4:
                 break
             else:
                 get_local_constants(cwd, option)
@@ -101,8 +95,10 @@ while True:
                             print(f"Successfully created batch with {num_jobs} jobs")
     elif option == 2:
         while True:
-            option = valid_int("Which program type would you like to submit?\n1) NetMC\n2) Triangle Raft\n3) Exit\n", 1, 3)
-            if option == 1 or option == 2:
+            option = valid_int("Which program type would you like to submit?\n1) NetMC\n2) NetMC Pores\n3) Triangle Raft\n4) Exit\n", 1, 4)
+            if option == 4:
+                break
+            else:
                 get_local_constants(cwd, option)
                 while True:
                     batches = import_batches("batch_history.txt", output_path)
@@ -123,15 +119,7 @@ while True:
                         print(f"\nSuccessfully submitted {selected_batch.name}!")
                     else:
                         break
-            elif option == 3:
-                break
     elif option == 3:
-        while True:
-            option = valid_int("Which program type would you like to submit?\n1) NetMC\n2) Triangle Raft\n3) Exit\n", 1, 3)
-            if option == 1 or option == 2:
-                get_local_constants(cwd, option)
-                
-            elif option == 3:
-                break
+        print("Not yet implemented")
     elif option == 4:
         break

@@ -4,13 +4,14 @@ from datetime import datetime, timezone
 
 from .other_utils import background_process
 
-program_type_constants={"netmc": {"program_name":"netmc",
-                            "exec_file_name":"netmc.x",
-                            "input_file_name":"netmc.inpt"},
+program_type_constants={"netmc": {"exec_file_name":"netmc.x",
+                                  "input_file_name":"netmc.inpt"},
                         
-                        "triangle_raft": {"program_name":"triangle_raft",
-                            "exec_file_name":"mx2.x",
-                            "input_file_name":"mx2.inpt"}}
+                        "netmc_pores": {"exec_file_name":"netmc_pores.x",
+                                        "input_file_name":"netmc.inpt"},
+                        
+                        "triangle_raft": {"exec_file_name":"mx2.x",
+                                          "input_file_name":"mx2.inpt"}}
 
 
 class Batch:
@@ -31,7 +32,7 @@ class Batch:
         except IndexError:
             self.last_ran = None
         self.type = program_type
-        self.prog_name = program_type_constants[program_type]["program_name"]
+        self.prog_name = program_type
         self.exec_name = program_type_constants[program_type]["exec_file_name"]
         self.input_file_name = program_type_constants[program_type]["input_file_name"]
         self.output_path = os.path.join(output_files_path, self.type, self.name)
@@ -47,14 +48,6 @@ class Batch:
             return self.last_ran < other.last_ran
         
     def submit(self, coulson_username, submit_script_path, output_files_path):
-        #print("python", submit_script_path, 
-        #                    "-n", self.name, 
-        #                    "-x", str(self.num_runs), 
-        #                    "-y", self.type, 
-        #                    "-p", self.path,
-        #                    "-o", output_files_path, 
-        #                    "-u", coulson_username)
-        
         background_process(["python", submit_script_path, 
                             "-n", self.name, 
                             "-x", str(self.num_runs), 

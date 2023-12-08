@@ -95,7 +95,7 @@ def valid_triple(prompt, lower, upper, valid_func, trip_type, delim = ",", exit_
     return True, nums
 
 def valid_csv(prompt, csv_type, lower = None, upper = None, valid_func = None, allowed_strings = None, delim = ",", exit_string = "e"):
-    string = input(f"prompt\n('{exit_string}' to exit)")
+    string = input(f"{prompt}\n('{exit_string}' to exit)\n")
     if string == exit_string:
         return False, "exit"
     csv = string.split(delim)
@@ -115,7 +115,7 @@ def valid_csv(prompt, csv_type, lower = None, upper = None, valid_func = None, a
     if allowed_strings:
         for string in csv:
             if string not in allowed_strings:
-                print("Disallowed string '{string}' entered")
+                print(f"Disallowed string '{string}' entered")
                 return False, None
     return True, csv
 

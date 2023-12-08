@@ -72,9 +72,10 @@ def remote_fast_scandir(ssh, path_pattern):
     remote_paths = [path for path in lines if path[0] != "."]
     return remote_paths
 
-def initialise(cwd):
-    required_dirs = (os.path.join(cwd, "output_files", "netmc"), os.path.join(cwd, "output_files", "triangle_raft"),
-                            os.path.join(cwd, "batches", "netmc"), os.path.join(cwd, "batches", "triangle_raft"))
+def initialise(cwd, output_path):
+    required_dirs = (os.path.join(output_path, "netmc"), os.path.join(cwd, "batches", "netmc"),
+                     os.path.join(output_path, "triangle_raft"), os.path.join(cwd, "batches", "triangle_raft"),
+                     os.path.join(output_path, "netmc_pores"), os.path.join(cwd, "batches", "netmc_pores"))
     required_files = ((os.path.join(cwd, "batch_history.txt")),)
     for directory in required_dirs:
         if not os.path.exists(directory):

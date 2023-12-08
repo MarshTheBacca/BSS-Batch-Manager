@@ -8,6 +8,9 @@ from .array_utils import import_2D
 dashes="--------------------------------------------------"
 program_type_constants={"netmc":{"template_file_name":"netmc_template.csv",
                                  "file_name":"netmc.inpt"},
+                        
+                        "netmc_pores":{"template_file_name":"netmc_pores_template.csv",
+                                       "file_name":"netmc.inpt"},
 
                         "triangle_raft":{"template_file_name":"triangle_raft_template.csv",
                                          "file_name":"mx2.inpt"}}
