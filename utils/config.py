@@ -69,23 +69,24 @@ class Config:
                 string += element.string+"\n"
             elif type(element) == Config.Var:
                 if element.type in ("int", "float", "str", "bool"):
-                    if element.valid_func == int:
-                        string += str(element.value) + "\t\t" + element.name + "\n"
-                    else:
+                    if element.valid_func == float:
                         string += str(round(element.value, 5)) + "\t\t" + element.name + "\n"
+                    else:
+                        string += str(element.value) + "\t\t" + element.name + "\n"
                 elif element.type == "int/str":
                     string += element.value_str + str(element.value) + "\t\t" + element.name + "\n"
                 elif element.type in ("dual int", "dual float", "dual bool"):
                     if not element.is_second:
-                        if element.valid_func == int:
-                            string += str(element.value) + "\t"
-                        else:
+                        if element.valid_func == float:
                             string += str(round(element.value, 5)) + "\t"
-                    else:
-                        if element.valid_str == int:
-                            string += str(element.value) + "\t" + element.comb_name + "\n"
+                            
                         else:
+                            string += str(element.value) + "\t"
+                    else:
+                        if element.valid_str == float:
                             string += str(round(element.value, 5)) + "\t" + element.comb_name + "\n"
+                        else:
+                            string += str(element.value) + "\t" + element.comb_name + "\n"
         return string.expandtabs(8)
             
     def generate_batch(self, cvas, var_indexes, save_path, batch_name):
