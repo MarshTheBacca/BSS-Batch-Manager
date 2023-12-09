@@ -14,7 +14,8 @@ The program has the following dependencies (which can be installed via `pip inst
 * datetime
 * zipfile
 
-You must also have an SSH key for Coulson added to your SSH agent, as password functionality has been removed for simplicity.
+You must have an SSH key for Coulson added to your SSH agent, as password functionality has been removed for simplicity.
+You must also be able to access Coulson, either via local network or via the University VPN.
 
 The program can be run with `python main.py`
 
