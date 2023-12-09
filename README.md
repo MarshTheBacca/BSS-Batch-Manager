@@ -14,6 +14,8 @@ The program has the following dependencies (which can be installed via `pip inst
 * datetime
 * zipfile
 
+You must also have an SSH key for Coulson added to your SSH agent, as password functionality has been removed for simplicity.
+
 The program can be run with `python main.py`
 
 ## Interface
