@@ -69,9 +69,9 @@ class Config:
         combined = sorted(self.variables + self.fillers)
         string = ""
         for element in combined:
-            if element.isinstance(Config.Filler):
+            if isinstance(element, Config.Filler):
                 string += element.string + "\n"
-            elif element.isinstance(Config.Var):
+            elif isinstance(element, Config.Var):
                 if element.type in ("int", "float", "str", "bool"):
                     if element.valid_func == float:
                         string += str(round(element.value, 5)) + "\t\t" + element.name + "\n"
@@ -166,7 +166,7 @@ class Config:
                 return lower, upper
 
             if var_type == "str":
-                if allowed_values.isinstance(list):
+                if isinstance(allowed_values, list):
                     allowed_values_string = ""
                     for string in allowed_values:
                         allowed_values_string += string + ", "
