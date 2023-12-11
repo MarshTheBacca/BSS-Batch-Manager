@@ -31,8 +31,8 @@ class Config:
             return_array = []
             for i in range(0, len(array)):
                 array[i].append(None)
-                array[i] = [None if element == "None" else True if element == "True" else False
-                            if element == "False" else element for element in array[i]]
+                array[i] = [None if element in ("None", None) else True if element.upper() == "TRUE" else False
+                            if element.upper() == "FALSE" else element for element in array[i]]
                 if array[i][6]:
                     if ";" in array[i][6]:
                         array[i][6] = array[i][6].split(";")
@@ -248,9 +248,9 @@ class Config:
 
         def __str__(self):
             if self.type in ("str", "bool", "dual bool"):
-                return f"{self.line}\t\t{self.name}\t\t{self.value}\t\t{self.type}\t\t{self.accepted}"
+                return f"{self.line}\t\t{self.name}\t\t{self.value}\t\t{self.type}\t\t{self.allowed_values}"
             elif self.type in ("int", "float", "dual int", "dual float", "int/str"):
-                return f"{self.line}\t\t{self.name}\t\t{self.value}\t\t{self.type}\t\t{self.lower}\t\t{self.upper}"
+                return f"{self.line}\t\t{self.name}\t\t{self.value}\t\t{self.type}\t\t{self.allowed_values}"
 
         def __lt__(self, other):
             if self.line == other.line:
