@@ -28,7 +28,6 @@ def command_lines(ssh, command):
 
 
 def mkdir_p(sftp: paramiko.SFTPClient, remote_path: Path):
-    print(remote_path)
     if remote_path == "/":
         sftp.chdir("/")
         return
@@ -39,8 +38,6 @@ def mkdir_p(sftp: paramiko.SFTPClient, remote_path: Path):
     except IOError:
         dirname = remote_path.parent
         basename = remote_path.name
-        print(dirname, type(dirname))
-        print(basename, type(basename))
         mkdir_p(sftp, dirname)
         sftp.mkdir(basename)
         sftp.chdir(basename)
