@@ -201,7 +201,7 @@ class Config:
                     if is_valid:
                         break
                 if self.valid_func == int:
-                    return True, np.int_(np.round_(np.arange(triple[0], triple[1] + triple[2], triple[2])))
+                    return True, np.int_(np.round(np.arange(triple[0], triple[1] + triple[2], triple[2])))
                 else:
                     return True, np.arange(triple[0], triple[1] + triple[2], triple[2])
             elif mode == "sen":
@@ -219,7 +219,7 @@ class Config:
                     cva = np.round(np.linspace(triple[0], triple[1], triple[2]), 5)
                     print(f"The increment will be: {round(cva[1] - cva[0], 5)}")
                 if self.valid_func == int:
-                    return True, np.int_(np.round_(cva))
+                    return True, np.int_(np.round(cva))
                 else:
                     return True, cva
             elif mode in ("nums", "any_string", "selected_strings"):
@@ -240,7 +240,7 @@ class Config:
                     if csv == "exit":
                         return False, None
                     elif is_valid and self.valid_func == int:
-                        return True, np.int_(np.round_(np.array(csv)))
+                        return True, np.int_(np.round(np.array(csv)))
                     elif is_valid:
                         return True, csv
             elif mode == "bool":
