@@ -103,11 +103,12 @@ print("Executing remote python script")
 ssh.exec_command(f"python3 {coulson_home_path.joinpath('Batch-Manager-Remote', 'remote_management', 'batch_submission_script.py').as_posix()} "
                  f"-p {coulson_run_path.as_posix()} -t {batch_type}")
 cfe_path = coulson_home_path.joinpath("Batch-Manager-Remote", "remote_management", "check_file_exists.sh").as_posix()
-print(f"Checking for output zip at\n{zip_path} using cfe_script at\n{cfe_path}")
+print(f"Checking for output zip at\n{zip_path}")
 while True:
-    print(command_lines(ssh, f"bash {cfe_path} {zip_path}")[0])
     if command_lines(ssh, f"bash {cfe_path} {zip_path}")[0] == "True":
+        print("Zip found")
         break
+    print("Zip not found")
     sleep(5)
 print("Transfering output zip to local drive")
 save_path.parent.mkdir(parents=True, exist_ok=True)
