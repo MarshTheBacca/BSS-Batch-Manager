@@ -59,8 +59,8 @@ Not yet implemented
 
 ## Troubleshooting
 ### Batches don't seem to submit
-Make sure you've configued your _Coulson Username_ in _config.csv_ correctly
-Make sure you have an SSH key for Coulson
+* Make sure you've configued your _Coulson Username_ in _config.csv_ correctly
+* Make sure you have an SSH key for Coulson
 
 ## Future Development
 * Currently working on implementing [Oliver Whitaker's](https://github.com/oliwhitg) NetMC Pores program
