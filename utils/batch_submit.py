@@ -55,12 +55,16 @@ def sftp_exists(sftp, path):
 def initialise(ssh, brm_dir):
     sftp = ssh.open_sftp()
     if not sftp_exists(sftp, brm_dir.as_posix()):
+        print("Batch-Manager-Remote did not exist. Copying over...")
         mkdir_p(sftp, brm_dir)
         sftp.put(Path.cwd().joinpath("common_files", "Batch-Manager-Remote.zip"), brm_dir.joinpath("Batch-Manager-Remote.zip").as_posix())
         sftp.close()
         stdin, stdout, stderr = ssh.exec_command(f"unzip {brm_dir.joinpath('Batch-Manager-Remote.zip')} -d {brm_dir};"
                                                  f"rm {brm_dir.joinpath('Batch-Manager-Remote.zip')}")
         stdout.read()
+        print("Copy successful")
+    else:
+        print("Batch-Manager-Remote already exists")
 
 
 parser = argparse.ArgumentParser(description="Submit jobs without overloading Coulson")
@@ -79,31 +83,40 @@ local_batch_path = Path(args.p)
 output_path = Path(args.o)
 coulson_username = args.u
 
+print("Args parsed")
 save_path = output_path.joinpath(batch_type, batch_name, f"{batch_name}_run_{num_runs + 1}.zip")
-
+print("Connecting to Coulson")
 ssh = ssh_login_silent("coulson.chem.ox.ac.uk", coulson_username)
 sftp = ssh.open_sftp()
+print("Connection Successful")
 coulson_home_path = Path(command_lines(ssh, "readlink -f ~/")[0])
+print("Checking for Batch-Manager-Remote in home directory")
 initialise(ssh, coulson_home_path.joinpath("Batch-Manager-Remote"))
 
 coulson_run_path = coulson_home_path.joinpath("Batch-Manager-Remote", f"{batch_type}", f"{batch_name}",
                                               f"{batch_name}_run_{num_runs + 1}")
-zip_path = f"{coulson_run_path}.zip"
+zip_path = Path(f"{coulson_run_path}.zip").as_posix()
+print("Transferring batch zip to Coulson")
 mkdir_p(sftp, coulson_run_path)
-sftp.put(local_batch_path, Path(coulson_run_path).joinpath(f"{batch_name}.zip").as_posix())
-ssh.exec_command(f"python3 {coulson_home_path.joinpath('Batch-Manager-Remote', 'remote_management', 'batch_submission_script.py')} "
-                 f"-p {coulson_run_path} -t {batch_type}")
+sftp.put(local_batch_path, coulson_run_path.joinpath(f"{batch_name}.zip").as_posix())
+print("Executing remote python script")
+ssh.exec_command(f"python3 {coulson_home_path.joinpath('Batch-Manager-Remote', 'remote_management', 'batch_submission_script.py').as_posix()} "
+                 f"-p {coulson_run_path.as_posix()} -t {batch_type}")
 cfe_path = coulson_home_path.joinpath("Batch-Manager-Remote", "remote_management", "check_file_exists.sh").as_posix()
+print(f"Checking for output zip at\n{zip_path} using cfe_script at\n{cfe_path}")
 while True:
+    print(command_lines(ssh, f"bash {cfe_path} {zip_path}")[0])
     if command_lines(ssh, f"bash {cfe_path} {zip_path}")[0] == "True":
         break
     sleep(5)
-
+print("Transfering output zip to local drive")
 save_path.parent.mkdir(parents=True, exist_ok=True)
 sftp.get(zip_path, save_path)
+print("Removing batch on Coulson")
 sftp.remove(zip_path)
 sftp.rmdir(Path(zip_path).parent.as_posix())
 ssh.close()
+print("Extracting local zip")
 with ZipFile(save_path, "r") as run_zip:
     run_zip.extractall(save_path.parent.joinpath(f'run_{num_runs + 1}'))
 save_path.unlink(missing_ok=True)
