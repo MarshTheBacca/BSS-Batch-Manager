@@ -1,9 +1,9 @@
-import os
 from zipfile import ZipFile
 from datetime import datetime, timezone
 from .other_utils import background_process
 from subprocess import check_output
 from platform import system
+from pathlib import Path
 program_type_constants = {"netmc": {"exec_file_name": "netmc.x",
                                     "input_file_name": "netmc.inpt"},
                           "netmc_pores": {"exec_file_name": "netmc_pores.x",
@@ -19,7 +19,7 @@ class Batch:
         self.run_times = sorted(run_times, reverse=True)
         try:
             with ZipFile(path, "r") as batch_zip:
-                self.jobs = [os.path.basename(os.path.dirname(sub_path)) for sub_path in batch_zip.namelist()]
+                self.jobs = [Path(sub_path).parent.name for sub_path in batch_zip.namelist()]
             self.num_jobs = len(self.jobs)
         except FileNotFoundError:
             self.jobs = []
@@ -33,7 +33,7 @@ class Batch:
         self.prog_name = program_type
         self.exec_name = program_type_constants[program_type]["exec_file_name"]
         self.input_file_name = program_type_constants[program_type]["input_file_name"]
-        self.output_path = os.path.join(output_files_path, self.type, self.name)
+        self.output_path = output_files_path.joinpath(self.type, self.name)
 
     def __str__(self):
         return (f"Batch_Obj: {self.name}, {self.type}, {self.num_jobs}, {self.num_runs}, {self.run_times}")
@@ -91,6 +91,6 @@ class Batch:
         return [[self.name, self.type, time] for time in self.run_times]
 
     class Run:
-        def __init__(self, number: int, path):
+        def __init__(self, number: int, path: Path):
             self.num = number
-            self.path = os.path.join(path, f"run_{number}")
+            self.path = path.joinpath(f"run_{number}")

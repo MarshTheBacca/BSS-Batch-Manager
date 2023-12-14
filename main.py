@@ -43,7 +43,7 @@ def get_local_constants(cwd, program_type):
 def main():
     cwd = Path(__file__).parent
     coulson_username, output_path = get_config_options(cwd.joinpath("config.csv"), [0, 1], cwd)
-    initialise(cwd, output_path)
+    initialise(output_path)
     local_tz = get_localzone()
     local_tz_string = datetime.now(local_tz).tzname()
     while True:
@@ -101,7 +101,7 @@ def main():
                 else:
                     get_local_constants(cwd, option)
                     while True:
-                        batches = import_batches("batch_history.txt", output_path)
+                        batches = import_batches(cwd.joinpath("batch_history.txt"), output_path)
                         batches_table = batch_table(batches, program_name, local_tz)
                         batch_names = [batch.name for batch in batches]
                         exit_option = len(batches_table) + 1

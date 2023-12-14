@@ -5,7 +5,6 @@ import multiprocessing
 from shutil import copytree
 from subprocess import Popen
 from .validation_utils import micro_valid_int
-from .file_utils import linux_path_converter
 
 
 def find_char_indexes(string, target_char, invert=0):
@@ -26,26 +25,6 @@ def clean_name(string, conversions={"(": "", ")": "", "^": "pow", " ": "_"}):
         else:
             return_string += char
     return return_string
-
-
-def job_script_maker(template_file_path,
-                     save_path,
-                     remote_job_path,
-                     exec_name,
-                     job_desc="qsub_log",
-                     job_path_line=9,
-                     exec_line=15,
-                     file_name="job_submission_script.sh"):
-
-    remote_job_path = linux_path_converter(remote_job_path)
-    with open(template_file_path, "r") as file:
-        template_lines = file.read().split("\n")
-    template_lines[6] = f"#$ -N {job_desc}"
-    template_lines[job_path_line - 1] = f'job_dir="{remote_job_path}"'
-    template_lines[exec_line - 1] = f"./{exec_name}"
-    with open(os.path.join(save_path, file_name), "w+") as file:
-        for line in template_lines:
-            file.write(f"{line}\n")
 
 
 def get_batch_IDs(string, lower, upper):
