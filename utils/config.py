@@ -86,7 +86,7 @@ class Config:
                         else:
                             string += str(element.value) + "\t"
                     else:
-                        if element.valid_str == float:
+                        if element.valid_func == float:
                             string += str(round(element.value, 5)) + "\t" + element.comb_name + "\n"
                         else:
                             string += str(element.value) + "\t" + element.comb_name + "\n"
@@ -197,7 +197,8 @@ class Config:
             if mode == "ses":
                 while True:
                     prompt = "Enter your start, end, step string in the form: s,e,s\n"
-                    is_valid, triple = valid_triple(prompt, self.allowed_values[0], self.allowed_values[1], self.valid_func, "ses")
+                    print(self.valid_func)
+                    is_valid, triple = valid_triple(prompt, "ses", self.valid_func, self.allowed_values[0], self.allowed_values[1])
                     if is_valid:
                         break
                 if self.valid_func == int:
@@ -207,7 +208,7 @@ class Config:
             elif mode == "sen":
                 while True:
                     prompt = "Enter your start, end, number of steps string in the form: s,e,n\n"
-                    is_valid, triple = valid_triple(prompt, self.allowed_values[0], self.allowed_values[1], self.valid_func, "sen")
+                    is_valid, triple = valid_triple(prompt, "sen", self.valid_func, self.allowed_values[0], self.allowed_values[1])
                     if triple == "exit":
                         return False, None
                     if is_valid:

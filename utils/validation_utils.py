@@ -1,4 +1,8 @@
-def valid_int(string, lower = float("-inf"), upper = float("inf"), confirm_num = None):        
+from typing import Callable
+
+
+def valid_int(string: str, lower: float | int = float("-inf"), upper: float | int = float("inf"),
+              confirm_num: int = None) -> str:
     while True:
         while True:
             try:
@@ -16,7 +20,7 @@ def valid_int(string, lower = float("-inf"), upper = float("inf"), confirm_num =
     return ans
 
 
-def micro_valid_int(string, lower, upper):
+def micro_valid_int(string: str, lower: float | int = float("-inf"), upper: float | int = float("inf")) -> bool:
     try:
         int(string)
     except ValueError:
@@ -25,31 +29,23 @@ def micro_valid_int(string, lower, upper):
         return False
     return True
 
-def micro_valid_num(string, int_float, lower, upper):
-    try:
-        int_float(string)
-    except ValueError:
-        return False
-    if int_float(string) < lower or int_float(string) > upper:
-        return False
-    return True
 
-def valid_str(prompt, length_range = False, char_types = False, exit_string = False):
+def valid_str(prompt: str, length_range: list = None, char_types: list = None, exit_string: str = None) -> str | bool:
     valid = 0
     while valid == 0:
         valid = 1
-        if exit_string:
-            prompt+=f"({exit_string} to exit)\n"
+        if exit_string is not None:
+            prompt += f"({exit_string} to exit)\n"
         string = input(prompt)
         if string == exit_string:
             return False
-        if length_range:
+        if length_range is not None:
             if len(string) < length_range[0] or len(string) > length_range[1]:
                 print(f"Input must be between {length_range[0]} and {length_range[1]} characters long")
                 valid = 0
-        if char_types:
+        if char_types is not None:
             if char_types == "ASCII":
-                char_types = [chr(i) for i in range(32,127)]
+                char_types = [chr(i) for i in range(32, 127)]
             for char in string:
                 if char not in char_types:
                     print(f"Input must not contain {char}")
@@ -57,7 +53,10 @@ def valid_str(prompt, length_range = False, char_types = False, exit_string = Fa
                     break
     return string
 
-def valid_triple(prompt, lower, upper, valid_func, trip_type, delim = ",", exit_string = "e"):
+
+def valid_triple(prompt: str, trip_type: str, valid_func: Callable,
+                 lower: float | int = float("-inf"), upper: float | int = float("inf"),
+                 delim: str = ",", exit_string: str = "e") -> tuple:
     nums = input(prompt)
     if nums == exit_string:
         return False, "exit"
@@ -65,6 +64,7 @@ def valid_triple(prompt, lower, upper, valid_func, trip_type, delim = ",", exit_
     if len(nums) != 3:
         print("You must enter only 3 numbers")
         return False, None
+    print(valid_func)
     for i, num in enumerate(nums):
         try:
             nums[i] = valid_func(num)
@@ -73,7 +73,7 @@ def valid_triple(prompt, lower, upper, valid_func, trip_type, delim = ",", exit_
             return False, None
     if nums[0] > nums[1]:
         print("First number must be less than second number")
-        return False
+        return False, None
     if (nums[0] or nums[1]) < lower or (nums[0] or nums[1]) > upper:
         print("Numbers out of bounds")
         return False, None
@@ -86,7 +86,7 @@ def valid_triple(prompt, lower, upper, valid_func, trip_type, delim = ",", exit_
         except ValueError:
             print("Number of steps must be an integer")
             return False, None
-        if nums[2] < 2 or nums [2] > 999999:
+        if nums[2] < 2 or nums[2] > 999999:
             print("Number of steps must be 1 < n < 999999")
             return False, None
         if valid_func == int and nums[2] > nums[1] - nums[0] + 1:
@@ -94,7 +94,9 @@ def valid_triple(prompt, lower, upper, valid_func, trip_type, delim = ",", exit_
             return False, None
     return True, nums
 
-def valid_csv(prompt, csv_type, lower = None, upper = None, valid_func = None, allowed_strings = None, delim = ",", exit_string = "e"):
+
+def valid_csv(prompt: str, csv_type: str, lower: float | int = float("-inf"), upper: float | int = float("inf"),
+              valid_func: Callable = None, allowed_strings: list | tuple = None, delim: str = ",", exit_string: str = "e"):
     string = input(f"{prompt}\n('{exit_string}' to exit)\n")
     if string == exit_string:
         return False, "exit"
@@ -119,7 +121,8 @@ def valid_csv(prompt, csv_type, lower = None, upper = None, valid_func = None, a
                 return False, None
     return True, csv
 
-def confirm(prompt = "Are you sure?[y,n]", answers = ("y", "n")):
+
+def confirm(prompt: str = "Are you sure?[y,n]", answers: tuple = ("y", "n")) -> bool:
     while True:
         conf = input(prompt).lower()
         if conf == answers[0]:
