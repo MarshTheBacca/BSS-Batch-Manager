@@ -65,3 +65,5 @@ Not yet implemented
 ## Future Development
 * Currently working on implementing [Oliver Whitaker's](https://github.com/oliwhitg) NetMC Pores program
 * Add option to cancel a batch submission
+* Add warning to user if not connected to Coulson
+* Add feature to make sure you cannot create two batches of the same name
