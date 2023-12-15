@@ -1,9 +1,6 @@
-import os
 import socket
 import subprocess
 import multiprocessing
-from shutil import copytree
-from subprocess import Popen
 from .validation_utils import micro_valid_int
 
 
@@ -43,17 +40,6 @@ def get_batch_IDs(string, lower, upper):
                 return int(string)
             return [int(string)]
     return False
-
-
-def get_seed(cwd, job_path, seeds_path, seed_size):
-    seeds = [int(seed.name) for seed in os.scandir(seeds_path) if seed.is_dir()]
-    new_seed_path = os.path.join(seeds_path, str(seed_size))
-    if seed_size not in seeds:
-        os.mkdir(new_seed_path)
-        os.chdir(new_seed_path)
-        Popen(["python", os.path.join(seeds_path, "make_poly_seed.py"), str(seed_size)]).wait()
-        os.chdir(cwd)
-    copytree(new_seed_path, os.path.join(job_path, "seed"))
 
 
 def get_ip():
