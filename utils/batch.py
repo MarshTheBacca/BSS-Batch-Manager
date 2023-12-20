@@ -4,6 +4,7 @@ from .other_utils import background_process
 from subprocess import check_output
 from platform import system
 from pathlib import Path
+from sys import executable
 program_type_constants = {"netmc": {"exec_file_name": "netmc.x",
                                     "input_file_name": "netmc.inpt"},
                           "netmc_pores": {"exec_file_name": "netmc_pores.x",
@@ -47,31 +48,21 @@ class Batch:
             return self.last_ran < other.last_ran
 
     def submit(self, coulson_username, submit_script_path, output_files_path):
-        os = system()
-        if os == "Windows" or os == "Linux":
-            if os == "Windows":
-                python_path = check_output(["where", "python"]).decode('utf-8').strip()
-            elif os == "Linux":
-                python_path = check_output(["which", "python"]).decode('utf-8').strip()
-            background_process([python_path, submit_script_path,
-                                "-n", self.name,
-                                "-x", str(self.num_runs),
-                                "-y", self.type,
-                                "-p", self.path,
-                                "-o", output_files_path,
-                                "-u", coulson_username])
-        else:
-            print(f"Cannot find python directory on operating system {os}")
-            print("Please execute the following command, replacing '<path>' with either your python "
-                  "executable directory, or python command on your system")
-            print("<path>", submit_script_path,
-                  "-n", self.name,
-                  "-x", str(self.num_runs),
-                  "-y", self.type,
-                  "-p", self.path,
-                  "-o", output_files_path,
-                  "-u", coulson_username)
-
+        python_path = executable
+        print(python_path, submit_script_path,
+                            "-n", self.name,
+                            "-x", str(self.num_runs),
+                            "-y", self.type,
+                            "-p", self.path,
+                            "-o", output_files_path,
+                            "-u", coulson_username)
+        background_process([python_path, submit_script_path,
+                            "-n", self.name,
+                            "-x", str(self.num_runs),
+                            "-y", self.type,
+                            "-p", self.path,
+                            "-o", output_files_path,
+                            "-u", coulson_username])
         self.num_runs += 1
         self.last_ran = datetime.now(timezone.utc)
         self.run_times.append(self.last_ran)
