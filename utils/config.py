@@ -4,19 +4,58 @@ from copy import deepcopy
 from zipfile import ZipFile
 from .other_utils import find_char_indexes, clean_name
 from .validation_utils import valid_int, valid_triple, valid_csv
-from .array_utils import import_2D
-
+from .array_utils import import_2d
+from typing import Tuple
 dashes = "--------------------------------------------------"
 program_type_constants = {"netmc": {"template_file_name": "netmc_template.csv",
                                     "file_name": "netmc.inpt"},
-                          "netmc_pores": {"template_file_name": "netmc_pores_template.csv",
-                                          "file_name": "netmc.inpt"},
+                          "lammps_netmc": {"template_file_name": "lammps_netmc_template.csv",
+                                           "file_name": "netmc.inpt"},
                           "triangle_raft": {"template_file_name": "triangle_raft_template.csv",
                                             "file_name": "mx2.inpt"}}
 
 modes = {"ses": "Start, End, Step", "sen": "Start, End, Number of Steps",
          "nums": "Num1, Num2...", "any_string": "Any String",
          "selected_strings": "Selected Strings", "bool": "Boolean, 0 or 1"}
+
+
+def extract_dual(string: str) -> Tuple[str, str]:
+    """
+    Extracts the two numbers from a string that is in the format "num1 num2"
+
+    Args:
+        string: str: The string to extract the numbers from
+
+    Returns:
+        Tuple[str, str]: The two numbers extracted from the string
+    """
+    space_indexes = find_char_indexes(string, " ")
+    first_num = string[0:space_indexes[0]]
+    second_num = string[space_indexes[-1] + 1:]
+    return first_num, second_num
+
+
+def convert_config_array(array: list[list]) -> list[list]:
+    # Config columns are: Line number, value, is var, table relevant, names, type, allowed values
+    # Names are only necessary for dual variables
+    return_array = []
+    for i in range(0, len(array)):
+        array[i].append(None)
+        array[i] = [None if element in ("None", None) else True if element.upper() == "TRUE" else False
+                    if element.upper() == "FALSE" else element for element in array[i]]
+        if array[i][6] and ";" in array[i][6]:
+            array[i][6] = array[i][6].split(";")
+        if array[i][7] and ";" in array[i][7]:
+            array[i][7] = array[i][7].split(";")
+        if "dual" in array[i][5]:
+            first_num, second_num = extract_dual(array[i][1])
+            second_line = [array[i][0], second_num, array[i][2], array[i][3],
+                           array[i][4], array[i][5], array[i][6][1], array[i][7][1], True]
+            array[i][1], array[i][6], array[i][7], array[i][8] = first_num, array[i][6][0], array[i][7][0], False
+            return_array.extend([array[i], second_line])
+        else:
+            return_array.append(array[i])
+    return return_array
 
 
 class Config:
@@ -27,35 +66,7 @@ class Config:
         self.import_config()
 
     def import_config(self):
-        def convert_config_array(array):
-            return_array = []
-            for i in range(0, len(array)):
-                array[i].append(None)
-                array[i] = [None if element in ("None", None) else True if element.upper() == "TRUE" else False
-                            if element.upper() == "FALSE" else element for element in array[i]]
-                if array[i][6]:
-                    if ";" in array[i][6]:
-                        array[i][6] = array[i][6].split(";")
-                if array[i][7]:
-                    if ";" in array[i][7]:
-                        array[i][7] = array[i][7].split(";")
-                if "dual" in array[i][5]:
-                    first_num, second_num = extract_dual(array[i][1])
-                    second_line = [array[i][0], second_num, array[i][2], array[i][3],
-                                   array[i][4], array[i][5], array[i][6][1], array[i][7][1], True]
-                    array[i][1], array[i][6], array[i][7], array[i][8] = first_num, array[i][6][0], array[i][7][0], False
-                    return_array.extend([array[i], second_line])
-                else:
-                    return_array.append(array[i])
-            return return_array
-
-        def extract_dual(string):
-            space_indexes = find_char_indexes(string, " ")
-            first_num = string[0:space_indexes[0]]
-            second_num = string[space_indexes[-1] + 1:]
-            return first_num, second_num
-
-        array = import_2D(self.csv_file, (0,))
+        array = import_2d(self.csv_file, (0,))
         array = convert_config_array(array)
         self.variables = []
         self.fillers = []

@@ -1,57 +1,64 @@
-from typing import Callable
+from typing import Callable, Tuple, Optional
+import sys
+
+
+def get_valid_int(prompt: str, lower: float | int = float("-inf"), upper: float | int = float("inf"),
+                  confirm_num: Optional[int] = None) -> int:
+    while True:
+        try:
+            answer = int(input(prompt))
+        except ValueError:
+            print("Answer is not a valid integer")
+            continue
+        if answer < lower or answer > upper:
+            print(f"Answer is out of bounds, must be between {lower} and {upper} inclusive")
+            continue
+        if confirm_num is None or (answer == confirm_num and confirm()):
+            return answer
 
 
 def valid_int(string: str, lower: float | int = float("-inf"), upper: float | int = float("inf"),
-              confirm_num: int = None) -> str:
-    while True:
-        while True:
-            try:
-                ans = int(input(string))
-                break
-            except ValueError:
-                print("That is not a valid answer")
-        if ans < lower or ans > upper:
-            print("That is not a valid answer")
-        elif ans == confirm_num:
-            if confirm():
-                break
-        else:
-            break
-    return ans
-
-
-def micro_valid_int(string: str, lower: float | int = float("-inf"), upper: float | int = float("inf")) -> bool:
+              verbose: bool = False) -> bool:
     try:
         int(string)
     except ValueError:
+        if verbose:
+            print("Answer is not a valid integer")
         return False
     if int(string) < lower or int(string) > upper:
+        if verbose:
+            print(f"Answer is out of bounds, must be between {lower} and {upper} inclusive")
         return False
     return True
 
 
-def valid_str(prompt: str, length_range: list = None, char_types: list = None, exit_string: str = None) -> str | bool:
-    valid = 0
-    while valid == 0:
-        valid = 1
-        if exit_string is not None:
-            prompt += f"({exit_string} to exit)\n"
+def get_valid_str(prompt: str, length_range: Tuple[int, int] = (0, sys.maxsize),
+                  char_types: Tuple[str, ...] | list[str] = (), verbose: bool = True) -> str:
+    while True:
         string = input(prompt)
-        if string == exit_string:
-            return False
-        if length_range is not None:
-            if len(string) < length_range[0] or len(string) > length_range[1]:
+        if len(string) < length_range[0] or len(string) > length_range[1]:
+            if verbose:
                 print(f"Input must be between {length_range[0]} and {length_range[1]} characters long")
-                valid = 0
-        if char_types is not None:
-            if char_types == "ASCII":
-                char_types = [chr(i) for i in range(32, 127)]
-            for char in string:
-                if char not in char_types:
-                    print(f"Input must not contain {char}")
-                    valid = 0
-                    break
-    return string
+            continue
+        if all(char in char_types for char in string):
+            return string
+        if verbose:
+            print("Input contains invalid characters")
+
+
+def valid_str(string: str, length_range: Tuple[int, int] = (0, sys.maxsize),
+              char_types: Tuple[str, ...] | list = (), verbose: bool = True) -> bool:
+    string_length = len(string)
+    if string_length < length_range[0] or string_length > length_range[1]:
+        if verbose:
+            print(f"Input must be between {length_range[0]} and {length_range[1]} characters long (inclusive)")
+        return False
+    for char in string:
+        if char not in char_types:
+            if verbose:
+                print(f"Input must not contain {char}")
+            return False
+    return True
 
 
 def valid_triple(prompt: str, trip_type: str, valid_func: Callable,
@@ -122,7 +129,8 @@ def valid_csv(prompt: str, csv_type: str, lower: float | int = float("-inf"), up
     return True, csv
 
 
-def confirm(prompt: str = "Are you sure?[y,n]", answers: tuple = ("y", "n")) -> bool:
+def confirm(prompt: str = "Are you sure? [y,n]",
+            answers: Tuple[str, str] = ("y", "n")) -> bool:
     while True:
         conf = input(prompt).lower()
         if conf == answers[0]:

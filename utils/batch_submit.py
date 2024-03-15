@@ -3,31 +3,74 @@ import argparse
 from zipfile import ZipFile
 from time import sleep
 from pathlib import Path
+from typing import Optional
 
 
-def createSSHClient(hostname: str, port: str, username: str, password=None) -> paramiko.SSHClient:
+def create_ssh_client(hostname: str, port: str, username: str) -> paramiko.SSHClient:
+    """
+    Creates an ssh client object and connects to the remote server
+
+    Args:
+        hostname: The hostname of the remote server
+        port: The port of the remote server
+        username: The username to login with
+    Returns:
+        An ssh object
+    """
     client = paramiko.SSHClient()
     client.load_system_host_keys()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname, port, username, password)
+    client.connect(hostname=hostname, port=port, username=username)
     return client
 
 
-def ssh_login_silent(host: str, username=None, password=None):
+def ssh_login_silent(hostname_arg: str, username: Optional[str] = None) -> paramiko.SSHClient:
+    """
+    Attempts to login to a remote server using the given hostname and username
+    If the login is successful, returns the ssh object
+
+    Args:
+        hostname_arg: The hostname of the remote server
+        username: The username to login with
+    Raises:
+        paramiko.AuthenticationException: If the login is unsuccessful
+    Returns:
+        An ssh object if the login is successful
+    """
     try:
-        ssh = createSSHClient(hostname=host, port=22, username=username)
+        ssh = create_ssh_client(hostname=hostname_arg, port="22", username=username)
         return ssh
     except (paramiko.AuthenticationException, paramiko.SSHException):
-        return False
+        raise paramiko.AuthenticationException(f"Could not login to {hostname_arg} with username {username}")
 
 
-def command_lines(ssh, command):
-    stdin, stdout, stderr = ssh.exec_command(command)
+def command_lines(ssh, command: str) -> list[str]:
+    """
+    Executes a command on the remote server
+
+    Args:
+        ssh: An open ssh connection
+        command: The command to be executed
+    Returns:
+        A list of the lines of the output
+    """
+    _, stdout, _ = ssh.exec_command(command)
     lines = stdout.read().decode("ascii").split("\n")[:-1]
     return lines
 
 
-def mkdir_p(sftp: paramiko.SFTPClient, remote_path: Path):
+def mkdir_p(sftp: paramiko.SFTPClient, remote_path: Path) -> None:
+    """
+    Makes a directory and all parent directories on the remote server
+
+    Args:
+        sftp: An open sftp connection
+        remote_path: The path to the directory to be made
+    Raises:
+        IOError: If the directory could not be made
+    Returns:
+        None
+    """
     if remote_path == "/":
         sftp.chdir("/")
         return
@@ -39,12 +82,18 @@ def mkdir_p(sftp: paramiko.SFTPClient, remote_path: Path):
         dirname = remote_path.parent
         basename = remote_path.name
         mkdir_p(sftp, dirname)
-        sftp.mkdir(basename)
-        sftp.chdir(basename)
-        return True
+        try:
+            sftp.mkdir(basename)
+            sftp.chdir(basename)
+        except IOError:
+            raise IOError(f"Could not make remote directory {remote_path}, check permissions")
 
 
-def sftp_exists(sftp, path):
+def sftp_exists(sftp, path: Path) -> bool:
+    """
+    Checks if a file or directory exists on the remote server
+    returns True if it does, False if it does not
+    """
     try:
         sftp.stat(path)
         return True
@@ -52,19 +101,23 @@ def sftp_exists(sftp, path):
         return False
 
 
-def initialise(ssh, brm_dir):
+def initialise(ssh, brm_dir: Path) -> None:
+    """
+    Checks if Batch-Manager-Remote exists on the remote server.
+    If it does not, it copies over the Batch-Manager-Remote and unzips it
+    """
     sftp = ssh.open_sftp()
     if not sftp_exists(sftp, brm_dir.as_posix()):
         print("Batch-Manager-Remote did not exist. Copying over...")
         mkdir_p(sftp, brm_dir)
         sftp.put(Path.cwd().joinpath("common_files", "Batch-Manager-Remote.zip"), brm_dir.joinpath("Batch-Manager-Remote.zip").as_posix())
         sftp.close()
-        stdin, stdout, stderr = ssh.exec_command(f"unzip {brm_dir.joinpath('Batch-Manager-Remote.zip')} -d {brm_dir};"
-                                                 f"rm {brm_dir.joinpath('Batch-Manager-Remote.zip')}")
+        _, stdout, _ = ssh.exec_command(f"unzip {brm_dir.joinpath('Batch-Manager-Remote.zip')} -d {brm_dir};"
+                                        f"rm {brm_dir.joinpath('Batch-Manager-Remote.zip')}")
         stdout.read()
         print("Copy successful")
-    else:
-        print("Batch-Manager-Remote already exists")
+        return
+    print("Batch-Manager-Remote already exists")
 
 
 parser = argparse.ArgumentParser(description="Submit jobs without overloading Coulson")

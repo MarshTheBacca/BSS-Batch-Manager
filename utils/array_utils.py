@@ -1,19 +1,27 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from os import scandir, getlogin
+import os
 from .batch import Batch
-from .other_utils import get_ip
+from typing import Optional
 
 
-def import_2D(path: Path, del_indexes: list = None, remove_blanks: bool = True) -> list:
-    # if using negative indexes, please list them last. For example:
-    # [0,4,6,100,999,-20,-15,-2,-1]
-    # -1 is the highest index, equivilent to len(array)-1
-    # Make sure that any positive index is not higher than a very negative index
+def import_2d(path: Path, del_indexes: Optional[tuple[int, ...]] = None,
+              remove_blanks: bool = True) -> list[list[str]]:
+    """
+    Reads a CSV file and returns a 2D list of the data
+
+    Args:
+        path (Path): The path to the CSV file
+        del_indexes (Optional[tuple[int, ...]]): A tuple of indexes to delete. Defaults to None.
+        if using negative indexes, please list them last, eg:
+        [0,4,6,100,999,-20,-15,-2,-1]. Make sure that any positive index is not higher than a very negative index
+
+        remove_blanks (bool, optional): If True, removes blank lines from the file. Defaults to True.
+    """
     with open(path, "r") as file:
         string = file.read()
     if string.strip() == "":
-        return None
+        return []
     temp, final = string.split("\n"), []
     for line in temp:
         if line != "":
@@ -26,7 +34,7 @@ def import_2D(path: Path, del_indexes: list = None, remove_blanks: bool = True) 
     return final
 
 
-def export_2D(path: Path, array: list, col_types: list = None,
+def export_2d(path: Path, array: list | tuple, col_types: Optional[tuple[int]] = None,
               date_format: str = "%Y-%m-%d", datetime_format: str = "%Y-%m-%d %H:%M:%S.%f %Z") -> None:
     length = len(array)
     width = len(array[0])  # assuming all rows are of the same length
@@ -60,19 +68,19 @@ def deliminator(length: int, width: int, row_index: int, col_index: int,
 def export_batches(path: Path, batches: list) -> None:
     array = []
     for batch in batches:
-        array.extend(batch.convert_to_export_array(timezone.utc))
-    export_2D(path, array, col_types=["str", "str", "datetime"], datetime_format="%Y %a %d %b %H:%M:%S %Z")
+        array.extend(batch.convert_to_export_array())
+    export_2d(path, array, col_types=["str", "str", "datetime"], datetime_format="%Y %a %d %b %H:%M:%S %Z")
 
 
 def import_batches(batch_history_path: Path, output_path: Path, batches_path: Path = Path.cwd().joinpath("batches")) -> list:
-    programs = [prog.name for prog in scandir(batches_path) if prog.is_dir()]
+    programs = [prog.name for prog in os.scandir(batches_path) if prog.is_dir()]
     batches = []
     for prog in programs:
-        prog_batches = [batch.name[:-4] for batch in scandir(batches_path.joinpath(prog)) if batch.name.endswith(".zip")]
+        prog_batches = [batch.name[:-4] for batch in os.scandir(batches_path.joinpath(prog)) if batch.name.endswith(".zip")]
         #               0      1        2           3
         # batches = [[batch, path, [run_times], prog_type],..]]
         batches.extend([[batch, batches_path.joinpath(prog, f"{batch}.zip"), [], prog] for batch in prog_batches])
-    batch_history = import_2D(batch_history_path)
+    batch_history = import_2d(batch_history_path)
     if batch_history:
         batch_history = converter(batch_history, data_types=("str", "str", "datetime"), datetime_format="%Y %a %d %b %H:%M:%S %Z")
         for log in batch_history:
@@ -81,25 +89,26 @@ def import_batches(batch_history_path: Path, output_path: Path, batches_path: Pa
                 batches.append([log[0], "deleted", [log[2]], log[1]])
             else:
                 batches[batch_names.index(log[0])][2].append(log[2])
-    # batches = [[name, path, run_times, type]]
     batches = [Batch(*(batch + [Path(output_path)])) for batch in batches]
     return batches
 
 
-def batch_table(batches: list, prog_type: str, t_zone: timezone) -> list:
-    table = []
+def batch_table(batches: list[Batch], prog_type: str, t_zone: timezone) -> list[list]:
+    """
+    Creates a table of batch data
+    Args:
+        batches: The list of batches to be displayed
+        prog_type: The type of program to be displayed
+        t_zone: The timezone to be used
+    Returns:
+        A 2D list of the batch data
+    """
     batches.sort(reverse=True)
-    # date_batches = list(filter(lambda batch: isinstance(batch.last_ran, datetime), batches))
-    # date_batches.sort(key = lambda batch: batch.last_ran, reverse = True)
-    # none_batches = list(filter(lambda batch: type(batch.last_ran) == None, batches))
-    # batches = date_batches + none_batches
-    for batch in batches:
-        if batch.type == prog_type and batch.path != "deleted":
-            table.append(batch.convert_to_array(t_zone))
-    return table
+    return [batch.convert_to_array(t_zone) for batch in batches if batch.type == prog_type and batch.path != "deleted"]
 
 
-def converter(raw_data: list, data_types: list = None, wanted_cols: list = None,
+def converter(raw_data: list[list[str]], data_types: Optional[list[str] | tuple[str, ...]] = None,
+              wanted_cols: Optional[list[int] | tuple[int, ...]] = None,
               date_format: str = "%Y-%m-%d", datetime_format: str = "%Y-%m-%d %H:%M:%S.%f %Z",
               time_zone: timezone = timezone.utc) -> list:
     if wanted_cols is None:
@@ -129,14 +138,20 @@ def converter(raw_data: list, data_types: list = None, wanted_cols: list = None,
     return database
 
 
-def remove_blanks(array: list) -> list:
-    return_array = [element for element in array if element != []]
-    return return_array
+def remove_blanks(array: list[list]) -> list[list]:
+    """
+    Removes all empty lists from the input list
+    Args:
+        array: The list to be cleaned
+    Returns:
+        The cleaned list
+    """
+    return [element for element in array if element != []]
 
 
 def get_config_options(config_path: Path, indexes: list, cwd: Path) -> list:
-    default_mappings = {"get_ip": get_ip(), "os.get_login": getlogin(), "None": None, "get_output_path": cwd.joinpath("output_files")}
-    config = import_2D(config_path, del_indexes=(0,))
+    default_mappings = {"os.get_login": os.getlogin(), "None": None, "get_output_path": cwd.joinpath("output_files")}
+    config = import_2d(config_path, del_indexes=(0,))
     return_list = []
     for i in indexes:
         if config[i][1]:
@@ -151,7 +166,7 @@ def print_table(array: list, headers: tuple | list, max_col_lengths: tuple | lis
     if num_lines is None:
         num_lines = len(array)
     if max_col_lengths is None:
-        max_col_lengths = [999 for element in array[0]]
+        max_col_lengths = [999 for _ in array[0]]
     max_lengths = [len(header) for header in headers]
     if dims == 2:
         for row in array:
@@ -163,7 +178,7 @@ def print_table(array: list, headers: tuple | list, max_col_lengths: tuple | lis
                 elif max_lengths[i] < ele_length:
                     max_lengths[i] = ele_length
         string = "Number\t"
-        shift = [0 for element in array[0]]
+        shift = [0 for _ in array[0]]
         for i, header in enumerate(headers, 0):
             diff = max_lengths[i] - len(header)
             if diff == 0:
@@ -182,11 +197,11 @@ def print_table(array: list, headers: tuple | list, max_col_lengths: tuple | lis
                     line = num_string
                     row = array[i]
                     while True:
-                        wrap = [0 for element in row]
+                        wrap = [0 for _ in row]
                         for z, element in enumerate(row):
                             if len(str(element)) > max_col_lengths[z]:
                                 wrap[z] = 1
-                        cropped_row = ["" for element in row]
+                        cropped_row = ["" for _ in row]
                         for z, element in enumerate(row):
                             if wrap[z] == 1:
                                 snip = element[:max_col_lengths[z]]
@@ -194,7 +209,7 @@ def print_table(array: list, headers: tuple | list, max_col_lengths: tuple | lis
                                 cropped_row[z] = element[max_col_lengths[z]:]
                             else:
                                 line += str(element) + " " * (max_lengths[z] - len(str(element)))
-                        if cropped_row == ["" for element in row]:
+                        if cropped_row == ["" for _ in row]:
                             breakout = 1
                             break
                         line += "\n" + len(num_string.expandtabs(4)) * " "

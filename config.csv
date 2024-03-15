@@ -1,3 +1,2 @@
 Option,Value,Default
-Coulson Username,,os.get_login
-Receive Output Path,,get_output_path
+Coulson Username,some5026,os.get_login

@@ -1,0 +1,39 @@
+LAMMPS-NetMC input file
+--------------------------------------------------
+I/O
+./output_files      Output Folder
+test            	Output File prefix
+./input_files       Input Folder
+gi_test            	Input File prefix
+false               Create Network from scratch?
+--------------------------------------------------
+Network Properties
+1588        Number of rings
+4           min ring size
+30          max ring size
+true       Enable fixed rings?
+--------------------------------------------------
+Minimisation Protocols
+true            Enable OpenMPI?
+Silicene        Structure Type (Graphene, Silicene, TriangleRaft, Bilayer or BoronNitride)
+--------------------------------------------------
+Monte Carlo Process
+0           random seed
+Random      Process for choosing bonds to switch (Random, Weighted)
+25         weighted decay, if using weighted
+--------------------------------------------------
+Monte Carlo Energy Search
+2            annealing start temperature (10^x)
+-5         annealing end temperature (10^x)
+10000        annealing steps
+6           thermalisation temperature (10^x)
+1000         themalisation steps
+--------------------------------------------------
+Potential Model
+3.5         Maximum bond length
+160         Maximum angle
+--------------------------------------------------
+Analysis
+2           analysis write interval (Steps)
+false       Write a movie file? (takes ~15x longer)
+--------------------------------------------------
