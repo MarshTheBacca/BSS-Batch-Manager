@@ -1,3 +1,6 @@
+batches/
+output_files/
+common_files/batch_log.csv
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
