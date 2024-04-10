@@ -1,22 +1,22 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Tuple, TextIO, Type, Any
-from pathlib import Path
-from enum import Enum
+
 import os
+import tempfile
+from copy import deepcopy
+from dataclasses import dataclass, field
+from enum import Enum
+from itertools import product
+from pathlib import Path
+from typing import Any, TextIO, Tuple, Type
+from zipfile import ZipFile
+
 from tabulate import tabulate
 
-from zipfile import ZipFile
-from itertools import product
-from copy import deepcopy
-import tempfile
-
-
-from .validation_utils import get_valid_int, get_valid_str
+from .custom_types import BondSelectionProcess, StructureType
 from .other_utils import clean_name
-from .var import Var, IntVar, FloatVar, StrVar, BoolVar, StructureTypeVar, BondSelectionVar
-from .custom_types import StructureType, BondSelectionProcess
-
+from .validation_utils import get_valid_int, get_valid_str
+from .var import (BondSelectionVar, BoolVar, FloatVar, IntVar,
+                  StructureTypeVar, StrVar, Var)
 from .variation_modes import VariationMode
 
 OUTPUT_FILE_TITLE = "LAMMPS-NetMC input file"
