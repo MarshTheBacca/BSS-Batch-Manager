@@ -5,7 +5,7 @@ This repository is designed to manage batches for [Bond Switch Simulator](https:
 
 The program has the following dependencies (which can be installed via `pip install [package_name]`):
 
-* paramiko (for SSHing into coulson)
+* paramiko (for SSHing into host)
 * numpy (for variation methods)
 * tz_local (for displaying local time in the batch information table)
 * tabulate (for displaying tables nicely)
@@ -15,6 +15,7 @@ You can also define the following config options in [config.csv](/config.csv)
 * _hostname_ - The server address the program submits batches to __(required)__
 
 __You must have an SSH key__ for the host added to your SSH agent
+
 __You must also be able to access the host__ either via local network or via a VPN
 
 ## Interface
@@ -25,7 +26,7 @@ The program uses an integer-based menu system. Your inital options are:
 
 You will be prompted to choose the following:
 
-* A starter network (loaded from [networks](/networks))
+* A starter network from [networks](/networks)
 * A [LAMMPS](https://github.com/lammps/lammps) potential file from [potentials](potentials)
 * Variables of the Bond Switch Simulator parameters to vary (maximum of 9)
 
@@ -43,9 +44,8 @@ The program will scan all batches in the [batches](/batches) directory and promp
 
 The program will prompt the user to choose a variable to edit in the [batch template](/common_files/bss_parameters.txt) and give a new value until they exit
 
-### Submit batch to host
 
-### Submit Batches
+### Submit batch to host
 The program will prompt the user to choose a batch to submit, while also displaying information such as the number of jobs and date submitted (sorted by latest submission first)
 
 Upon confirmation of submission, a daemon process is initiated which does the following:
