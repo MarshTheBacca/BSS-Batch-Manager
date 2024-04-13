@@ -144,4 +144,6 @@ def get_options(config_path: Path) -> dict:
     """
     default_mappings = {"os.get_login": os.getlogin(), "None": None}
     config = import_2d(config_path, del_indexes=(0,))
-    return {option[0]: option[2] if option[2] else default_mappings.get(option[1]) for option in config}
+    if all(len(line) == len(config[0]) for line in config):
+        return {option[0]: option[2] if option[2] else default_mappings.get(option[1]) for option in config}
+    raise RuntimeError("Could not load config (did you miss a comma?)")
