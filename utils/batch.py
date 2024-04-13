@@ -26,7 +26,9 @@ class Batch:
         self.run_times = sorted(self.run_times)
         try:
             with ZipFile(self.path, "r") as batch_zip:
-                self.jobs: list[str] = [Path(sub_path).parent.name for sub_path in batch_zip.namelist()]
+                exclude_folders = ("initial_lammps_files", "initial_network")
+                self.jobs: set[str] = set(sub_path.split('/')[0] for sub_path in batch_zip.namelist()
+                                          if '/' in sub_path and sub_path.split('/')[0] not in exclude_folders)
         except FileNotFoundError:
             if not self.deleted:
                 raise EmptyBatchError(f"Batch {self.name} does not exist")
@@ -46,13 +48,6 @@ class Batch:
             submit_script_path (Path): The path to the submit script
             output_path (Path): The path to the directory to save the output files
         """
-        print(sys.executable,
-              submit_script_path,
-              "-n", self.name,
-              "-x", str(self.num_runs),
-              "-p", self.path,
-              "-o", output_path,
-              "-u", username)
         background_process([sys.executable, submit_script_path,
                             "-n", self.name,
                             "-x", str(self.num_runs),
@@ -61,6 +56,13 @@ class Batch:
                             "-u", username])
         self.num_runs += 1
         self.run_times.append(datetime.now(timezone.utc))
+
+    def delete(self) -> None:
+        """
+        Deletes the batch by setting the deleted attribute to True
+        """
+        self.path.unlink()
+        self.deleted = True
 
     def convert_to_array(self, t_zone: timezone = timezone.utc) -> tuple[str, int, int, str]:
         """
@@ -106,12 +108,16 @@ class Batch:
             bool: True if the last ran time of this Batch is less than the other Batch, False otherwise
             NotImplemented: If the other object is not a Batch object
         """
-        if isinstance(other, Batch):
-            if self.get_last_ran is None:
-                return True
-            elif other.get_last_ran is None:
-                return False
+        try:
+            if isinstance(other, Batch):
+                if self.get_last_ran is None:
+                    return True
+                elif other.get_last_ran is None:
+                    return False
+                else:
+                    return self.get_last_ran < other.get_last_ran
             else:
-                return self.get_last_ran < other.get_last_ran
-        else:
-            return NotImplemented
+                return NotImplemented
+        except TypeError as e:
+            print(f"Trying to compare: {self} and {other}")
+            raise TypeError(e)
