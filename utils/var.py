@@ -1,16 +1,19 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Optional, Type, Any
+
 from abc import ABC, abstractmethod
-from .variation_modes import VariationMode
+from dataclasses import dataclass, field
+from typing import Any, Optional, Type
+
+from .custom_types import BondSelectionProcess, StructureType
 from .validation_utils import get_valid_int
-from .custom_types import StructureType, BondSelectionProcess
+from .variation_modes import VariationMode
+from .custom_types import BSSType
 
 
 @dataclass
 class Var(ABC):
     name: str
-    value: Optional[int | float | str | bool | StructureType | BondSelectionProcess] = None
+    value: Optional[BSSType] = None
     is_table_relevant: bool = True
     variation_modes: list[VariationMode] = field(default_factory=list)
     certain_strings: Optional[list[str]] = None
@@ -24,14 +27,14 @@ class Var(ABC):
             raise ValueError(f"Invalid type for variable {self.name}: {type(self.value)}")
 
     @abstractmethod
-    def set_value(self, value: int | float | str | bool | StructureType | BondSelectionProcess) -> None:
+    def set_value(self, value: BSSType) -> None:
         pass
 
     @abstractmethod
     def set_value_interactive(self) -> None:
         pass
 
-    def get_vary_array(self) -> list[int | float | str | bool | StructureType | BondSelectionProcess] | None:
+    def get_vary_array(self) -> list[BSSType] | None:
         prompt: str = "How would you like to vary this variable?\n"
         for i, mode in enumerate(self.variation_modes, start=1):
             prompt += f"{i}) {mode.value}\n"
