@@ -1,0 +1,25 @@
+Bond Switch Simulator input file
+--------------------------------------------------
+Network Restrictions
+4                             Minimum ring size
+30                            Maximum ring size
+3.5                           Max bond length
+170.0                         Max bond angle
+true                          Enable fixed rings
+--------------------------------------------------
+Bond Selection Process
+0                             Random seed
+Random                        Bond selection process
+25.0                          Weighted decay
+--------------------------------------------------
+Temperature Schedule
+5.0                           Thermalising temperature
+0.0                           Annealing start temperature
+-5.0                          Annealing end temperature
+20000                         Annealing steps
+2000                          Thermalising steps
+--------------------------------------------------
+Analysis
+4                             Analysis write interval
+false                         Write movie file
+--------------------------------------------------
