@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 from tabulate import tabulate
+from tzlocal import get_localzone
 
 from .array_utils import import_2d
 from .batch import Batch
 from .ssh_utils import LogInException, ssh_login_silent
-from .validation_utils import get_valid_int
+from .validation_utils import confirm, get_valid_int
+
+LAST_RUN_INDEX = 3
+LOCAL_TZ = get_localzone()
 
 
 @dataclass
@@ -21,6 +25,7 @@ class BatchData:
     @staticmethod
     def from_files(batch_log_path: Path, batches_path: Path) -> BatchData:
         batch_log = import_2d(batch_log_path)
+        batch_log = [[datetime.strptime(log[0], "%Y %a %d %b %H:%M:%S %Z").replace(tzinfo=timezone.utc), log[1]] for log in batch_log]
         logged_batches = {}
         for log in batch_log:
             if log[1] not in logged_batches:
@@ -45,22 +50,36 @@ class BatchData:
             if batch not in [batch.name for batch in self.batches]:
                 self.add_batch(Batch(batch, batches_path.joinpath(f"{batch}.zip"), [], False))
 
+    def table_print(self, t_zone: timezone = LOCAL_TZ, include_deleted: bool = False) -> None:
+        if include_deleted:
+            batches = self.batches + self.deleted_batches
+        else:
+            batches = self.batches
+        batches.sort(reverse=True)
+        array = [batch.convert_to_array(t_zone) for batch in batches]
+        # Add numbers
+        array = [[i] + list(row) for i, row in enumerate(array, start=1)]
+        tz_name = datetime.now(t_zone).strftime('%Z')
+        print(tabulate(array, headers=["#", "Batch Name", "Number of Jobs", "Number of Runs", f"Last Ran ({tz_name})"], tablefmt="fancy_grid"))
+
     def add_batch(self, batch: Batch) -> None:
         if not batch.deleted:
             self.batches.append(batch)
             return
         self.deleted_batches.append(batch)
 
-    def table_print(self, t_zone: timezone = timezone.utc, include_deleted: bool = False) -> None:
-        if include_deleted:
-            batches = self.batches + self.deleted_batches
-        else:
-            batches = self.batches
-        array = [[i] + list(batch.convert_to_array(t_zone)) for i, batch in enumerate(batches, start=1)]
-        # Sort by most recent run
-        LAST_RUN_INDEX = 4
-        array.sort(key=lambda x: x[LAST_RUN_INDEX], reverse=True)
-        print(tabulate(array, headers=["#", "Batch Name", "Number of Jobs", "Number of Runs", "Last Ran"], tablefmt="fancy_grid"))
+    def delete_batch(self) -> None:
+        if not self.batches:
+            print("There are no batches to delete!")
+            return
+        self.table_print()
+        option = get_valid_int("Which batch would you like to delete?\n", 1, len(self.batches))
+        if option is None:
+            return
+        batch = self.batches.pop(option - 1)
+        batch.delete()
+        self.deleted_batches.append(batch)
+        print(f"Batch {batch.name} deleted successfully!")
 
     def submit_batch(self, output_path: Path, submit_script_path: Path, username: str) -> None:
         if not self.batches:
@@ -71,6 +90,8 @@ class BatchData:
         option = get_valid_int(f"Which batch would you like to submit? ({exit_num} to exit)\n", 1, exit_num)
         if option == exit_num:
             return
+        if not (confirm()):
+            return
         try:
             ssh = ssh_login_silent(username=username)
         except LogInException as e:
@@ -79,6 +100,7 @@ class BatchData:
         ssh.close()
         self.batches[option - 1].submit(username, output_path, submit_script_path)
         self.log_batch(self.batches[option - 1])
+        print(f"Batch {self.batches[option - 1].name} submitted successfully!")
 
     def log_batch(self, batch: Batch) -> None:
         with open(self.log_path, "a") as log_file:
