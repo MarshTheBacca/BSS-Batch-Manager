@@ -153,35 +153,54 @@ def create_batch(template_data: BSSInputData, batches_path: Path, networks_path:
 
 def main() -> None:
     cwd = Path(__file__).parent
-    options = get_options(cwd.joinpath("config.csv"))
-    username = options["username"]
-    common_files_path = cwd.joinpath("common_files")
-    common_files_path.joinpath("batch_log.csv").touch(exist_ok=True)
-    batches_path = cwd.joinpath("batches")
-    batches_path.mkdir(exist_ok=True)
-    output_path = cwd.joinpath("output_files")
-    output_path.mkdir(exist_ok=True)
-    networks_path = cwd.joinpath("networks")
-    networks_path.mkdir(exist_ok=True)
-    potentials_path = cwd.joinpath("potentials")
-    potentials_path.mkdir(exist_ok=True)
-    template_data = BSSInputData.from_file(common_files_path.joinpath("bss_parameters.txt"))
-    batch_data = BatchData.from_files(common_files_path.joinpath("batch_log.csv"), batches_path)
-    while True:
-        option = get_valid_int("What would you like to do?\n1) Create a batch\n2) Delete a batch\n"
-                               "3) Edit the batch template\n4) Submit batch to Coulson\n5) Exit\n", 1, 5)
-        if option == 1:
-            create_batch(template_data, batches_path, networks_path, potentials_path)
-            batch_data.refresh(batches_path)
-        elif option == 2:
-            batch_data.delete_batch()
-        elif option == 3:
-            template_data.edit_value_interactive()
-            template_data.export(common_files_path.joinpath("bss_parameters.txt"))
-        elif option == 4:
-            batch_data.submit_batch(output_path, cwd.joinpath("utils", "batch_submit.py"), username)
-        elif option == 5:
-            break
+    try:
+        options = get_options(cwd.joinpath("config.csv"))
+        hostname = options["hostname"]
+        if hostname is None:
+            print("Please give a hostname to submit batches to in the config.csv file")
+            return
+        username = options["username"]
+    except RuntimeError as e:
+        print(e)
+        return
+    except KeyError:
+        print("Could not load username and hostname config options (did you delete config lines?)")
+        return
+    print(f"Loaded username: {username} for connecting to: {hostname}")
+    try:
+        common_files_path = cwd.joinpath("common_files")
+        common_files_path.joinpath("batch_log.csv").touch(exist_ok=True)
+        batches_path = cwd.joinpath("batches")
+        batches_path.mkdir(exist_ok=True)
+        output_path = cwd.joinpath("output_files")
+        output_path.mkdir(exist_ok=True)
+        networks_path = cwd.joinpath("networks")
+        networks_path.mkdir(exist_ok=True)
+        potentials_path = cwd.joinpath("potentials")
+        potentials_path.mkdir(exist_ok=True)
+        template_data = BSSInputData.from_file(common_files_path.joinpath("bss_parameters.txt"))
+        batch_data = BatchData.from_files(common_files_path.joinpath("batch_log.csv"), batches_path)
+        while True:
+            option = get_valid_int("What would you like to do?\n1) Create a batch\n2) Delete a batch\n"
+                                   "3) Edit the batch template\n4) Submit batch to host\n5) Exit\n", 1, 5)
+            if option == 1:
+                create_batch(template_data, batches_path, networks_path, potentials_path)
+                batch_data.refresh(batches_path)
+            elif option == 2:
+                batch_data.delete_batch()
+            elif option == 3:
+                template_data.edit_value_interactive()
+                template_data.export(common_files_path.joinpath("bss_parameters.txt"))
+            elif option == 4:
+                batch_data.submit_batch(output_path, cwd.joinpath("utils", "batch_submit.py"), username, hostname)
+            elif option == 5:
+                break
+    except FileNotFoundError as e:
+        print(f"File not found: {e}")
+    except PermissionError as e:
+        print(f"Permission error: {e}")
+    except Exception as e:
+        print(f"An unexpected error occured: {e}")
 
 
 if __name__ == "__main__":
