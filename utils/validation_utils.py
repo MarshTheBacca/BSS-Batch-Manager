@@ -2,7 +2,10 @@ from typing import Tuple, Optional
 import sys
 
 
-def get_valid_int(prompt: str, lower: float | int = float("-inf"), upper: float | int = float("inf"), exit_string: Optional[str] = None) -> int | None:
+def get_valid_int(prompt: str,
+                  lower: float | int = float("-inf"),
+                  upper: float | int = float("inf"),
+                  exit_string: Optional[str] = None) -> int | None:
     """
     Obtains a valid integer from the user within a given range
 
@@ -28,33 +31,6 @@ def get_valid_int(prompt: str, lower: float | int = float("-inf"), upper: float 
             print(f"Answer is out of bounds, must be between {lower} and {upper} inclusive")
             continue
         return answer
-
-
-def valid_int(string: str, lower: float | int = float("-inf"), upper: float | int = float("inf"),
-              verbose: bool = False) -> bool:
-    """
-    Checks if a string is a valid integer within a given range
-
-    Args:
-        string (str): The string to check
-        lower (float | int): The lower bound of the range
-        upper (float | int): The upper bound of the range
-        verbose (bool): Whether to print error messages
-
-    Returns:
-        bool: True if the string is a valid integer within the range, False otherwise
-    """
-    try:
-        int(string)
-    except ValueError:
-        if verbose:
-            print("Answer is not a valid integer")
-        return False
-    if int(string) < lower or int(string) > upper:
-        if verbose:
-            print(f"Answer is out of bounds, must be between {lower} and {upper} inclusive")
-        return False
-    return True
 
 
 def get_valid_str(prompt: str,
@@ -94,23 +70,23 @@ def get_valid_str(prompt: str,
         return string
 
 
-def valid_str(string: str, length_range: Tuple[int, int] = (0, sys.maxsize),
-              char_types: Tuple[str, ...] | list = (), verbose: bool = True) -> bool:
-    string_length = len(string)
-    if string_length < length_range[0] or string_length > length_range[1]:
-        if verbose:
-            print(f"Input must be between {length_range[0]} and {length_range[1]} characters long (inclusive)")
-        return False
-    for char in string:
-        if char not in char_types:
-            if verbose:
-                print(f"Input must not contain {char}")
-            return False
-    return True
-
-
-def confirm(prompt: str = "Are you sure? [y,n]",
+def confirm(prompt: str = "Are you sure? [y,n]\n",
             answers: Tuple[str, str] = ("y", "n")) -> bool:
+    """
+    Asks the user for confirmation
+
+    Args:
+        prompt (str): The prompt to display to the user
+        answers (Tuple[str, str]): The two valid answers
+
+    Returns:
+        bool: True if the user confirms, False otherwise
+
+    Raises:
+        ValueError: If the number of valid answers is not equal to 2
+    """
+    if len(answers) != 2:
+        raise ValueError("There must be exactly two answers")
     while True:
         conf = input(prompt).lower()
         if conf == answers[0]:
