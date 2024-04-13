@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Type
 from .validation_utils import get_valid_int
 import numpy as np
-from .custom_types import StructureType, BondSelectionProcess
+from .custom_types import StructureType, BondSelectionProcess, BSSType
 
 
 class InvalidThreeNumbers(Exception):
@@ -25,7 +25,7 @@ class VariationMode(Enum):
 
     def get_vary_array(self, lower: int | float = float("-inf"),
                        upper: int | float = float("inf"),
-                       round_nums: bool = False) -> list[int | float | str | bool | StructureType | BondSelectionProcess]:
+                       round_nums: bool = False) -> list[BSSType]:
         handlers = {VariationMode.STARTENDSTEP: self._handle_start_end_step,
                     VariationMode.STARTENDNUM: self._handle_start_end_num,
                     VariationMode.NUMS: self._handle_nums,
