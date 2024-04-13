@@ -81,7 +81,7 @@ class BatchData:
         self.deleted_batches.append(batch)
         print(f"Batch {batch.name} deleted successfully!")
 
-    def submit_batch(self, output_path: Path, submit_script_path: Path, username: str) -> None:
+    def submit_batch(self, output_path: Path, submit_script_path: Path, username: str, hostname: str) -> None:
         if not self.batches:
             print("There are no batches to submit!")
             return
@@ -93,12 +93,12 @@ class BatchData:
         if not (confirm()):
             return
         try:
-            ssh = ssh_login_silent(username=username)
+            ssh = ssh_login_silent(username=username, hostname=hostname)
         except LogInException as e:
             print(e)
             return
         ssh.close()
-        self.batches[option - 1].submit(username, output_path, submit_script_path)
+        self.batches[option - 1].submit(username, hostname, output_path, submit_script_path)
         self.log_batch(self.batches[option - 1])
         print(f"Batch {self.batches[option - 1].name} submitted successfully!")
 

@@ -257,7 +257,7 @@ def write_log_to_zip(zip_path: Path, log_path: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Submit jobs without overloading Coulson")
+    parser = argparse.ArgumentParser(description="Submit jobs without overloading host")
     parser.add_argument("-p", type=str, help="Path to run folder", metavar="path", required=True)
     args = parser.parse_args()
     run_path: Path = Path(args.p).resolve()

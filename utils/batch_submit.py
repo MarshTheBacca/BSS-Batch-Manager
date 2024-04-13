@@ -11,7 +11,6 @@ import paramiko
 from ssh_utils import (LogInException, command_lines, land_directory,
                        sftp_exists, ssh_login_silent)
 
-COULSON_HOSTNAME = "coulson.chem.ox.ac.uk"
 TIMEOUT = 5 * 30 * 24 * 60 * 60  # 5 months is approximately 5*30*24*60*60 = 10,800,000 seconds
 
 
@@ -37,12 +36,14 @@ def parse_arguments() -> argparse.Namespace:
     Exits:
         If the arguments are not provided correctly
     """
-    parser = argparse.ArgumentParser(description="Submit jobs without overloading Coulson")
+    parser = argparse.ArgumentParser(description="Submit jobs without overloading host")
     parser.add_argument("-n", type=str, help="Batch name", metavar="zip_path", required=True)
     parser.add_argument("-x", type=int, help="Number of runs of batch", metavar="num_runs", required=True)
     parser.add_argument("-p", type=str, help="Local batch zip path", metavar="local_batch_path", required=True)
     parser.add_argument("-o", type=str, help="Local ouput folder", metavar="output_path", required=True)
-    parser.add_argument("-u", type=str, help="Coulson Username", metavar="username", required=True)
+    parser.add_argument("-u", type=str, help="Username", metavar="username", required=True)
+    parser.add_argument("-z", type=str, help="Hostname", metavar="hostname", required=True)
+
     try:
         return parser.parse_args()
     except argparse.ArgumentError as e:
@@ -50,9 +51,9 @@ def parse_arguments() -> argparse.Namespace:
         sys.exit(1)
 
 
-def connect_to_coulson(username: str) -> tuple[paramiko.SSHClient, paramiko.SFTPClient]:
+def connect_to_host(username: str, hostname: str) -> tuple[paramiko.SSHClient, paramiko.SFTPClient]:
     """
-    Attempts to connect to Coulson
+    Attempts to connect to host
 
     Args:
         username (str): The username to connect with
@@ -60,7 +61,7 @@ def connect_to_coulson(username: str) -> tuple[paramiko.SSHClient, paramiko.SFTP
         If the connection fails
     """
     try:
-        ssh = ssh_login_silent(username, COULSON_HOSTNAME)
+        ssh = ssh_login_silent(username=username, hostname=hostname)
         sftp = ssh.open_sftp()
         return ssh, sftp
     except (LogInException, paramiko.SSHException) as e:
@@ -146,19 +147,20 @@ def main() -> None:
     num_runs = args.x
     local_batch_path = Path(args.p)
     output_path = Path(args.o)
-    coulson_username = args.u
+    username = args.u
+    hostname = args.z
     save_path = output_path.joinpath(batch_name, f"{batch_name}_run_{num_runs + 1}.zip")
 
-    logging.info("Connecting to Coulson")
+    logging.info(f"Connecting to {hostname}")
     try:
-        ssh, sftp = connect_to_coulson(coulson_username)
+        ssh, sftp = connect_to_host(username, hostname)
         try:
             logging.info("Connection Successful!")
             logging.info("Checking for BSS-Batch-Manager-Remote in home directory")
             coulson_home_path = Path(command_lines(ssh, "readlink -f ~/")[0])
             initialise_remote(ssh, sftp, coulson_home_path.joinpath("BSS-Batch-Manager-Remote"))
 
-            logging.info("Transferring batch zip to Coulson")
+            logging.info("Transferring batch zip to server")
             coulson_run_path = coulson_home_path.joinpath("BSS-Batch-Manager-Remote", batch_name, f"{batch_name}_run_{num_runs + 1}")
             zip_path = Path(f"{coulson_run_path}.zip").as_posix()
             land_directory(sftp, coulson_run_path)
@@ -179,7 +181,7 @@ def main() -> None:
             save_path.parent.mkdir(parents=True, exist_ok=True)
             sftp.get(zip_path, save_path)
 
-            logging.info("Removing batch on Coulson")
+            logging.info("Removing batch on server")
             sftp.remove(zip_path)
             sftp.rmdir(Path(zip_path).parent.as_posix())
             ssh.close()

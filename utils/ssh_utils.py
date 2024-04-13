@@ -1,8 +1,6 @@
 import paramiko
 from pathlib import Path
 
-COULSON_HOSTNAME = "coulson.chem.ox.ac.uk"
-
 
 class LogInException(Exception):
     pass
@@ -50,7 +48,7 @@ def command_lines(ssh: paramiko.SSHClient, command: str) -> list[str]:
     return lines
 
 
-def create_ssh_client(username: str, hostname: str = COULSON_HOSTNAME, port: int = 22) -> paramiko.SSHClient:
+def create_ssh_client(username: str, hostname: str, port: int = 22) -> paramiko.SSHClient:
     """
     Creates an SSH client by loading the system host keys and setting the missing host key policy to AutoAddPolicy
 
@@ -68,7 +66,7 @@ def create_ssh_client(username: str, hostname: str = COULSON_HOSTNAME, port: int
     return client
 
 
-def ssh_login_silent(username: str, hostname: str = COULSON_HOSTNAME) -> paramiko.SSHClient:
+def ssh_login_silent(username: str, hostname: str) -> paramiko.SSHClient:
     """
     Logs into a remote server using SSH on port 22
 

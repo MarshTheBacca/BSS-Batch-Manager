@@ -37,14 +37,15 @@ class Batch:
         self.num_jobs: int = len(self.jobs)
         self.num_runs: int = len(self.run_times)
 
-    def submit(self, username: str, output_path: Path, submit_script_path: Path) -> None:
+    def submit(self, username: str, hostname: str, output_path: Path, submit_script_path: Path) -> None:
         """
-        Submits the batch to Coulson by launching a background task that runs the submit script
+        Submits the batch to host by launching a background task that runs the submit script
         and checks every 5 seconds if the batch has been completed, and then returns
         the output files as a zip file
 
         Args:
-            username (str): The username for the remote host (Coulson)
+            username (str): The username for the remote host
+            hostname (str): The server host name, eg, coulson.chem.ox.ac.uk
             submit_script_path (Path): The path to the submit script
             output_path (Path): The path to the directory to save the output files
         """
@@ -53,7 +54,8 @@ class Batch:
                             "-x", str(self.num_runs),
                             "-p", self.path,
                             "-o", output_path,
-                            "-u", username])
+                            "-u", username,
+                            "-z", hostname])
         self.num_runs += 1
         self.run_times.append(datetime.now(timezone.utc))
 
