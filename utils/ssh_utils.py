@@ -89,7 +89,12 @@ def ssh_login_silent(username: str, hostname: str = COULSON_HOSTNAME) -> paramik
 def sftp_exists(sftp: paramiko.SFTPClient, path: Path) -> bool:
     """
     Checks if a file or directory exists on the remote server
-    returns True if it does, False if it does not
+
+    Args:
+        sftp: An open sftp connection
+        path: The path to the file or directory
+    Returns:
+        bool: True if the file or directory exists, False if it does not
     """
     try:
         sftp.stat(path)
