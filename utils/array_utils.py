@@ -3,8 +3,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .batch import Batch
-
 
 def import_2d(path: Path, del_indexes: Optional[tuple[int, ...]] = None,
               remove_blanks: bool = True) -> list[list[str]]:
