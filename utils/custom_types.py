@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Type
 
 
 class StructureType(Enum):
@@ -12,3 +13,6 @@ class StructureType(Enum):
 class BondSelectionProcess(Enum):
     RANDOM = "Random"
     WEIGHTED = "Weighted"
+
+
+BSSType = int | float | str | bool | StructureType | BondSelectionProcess
