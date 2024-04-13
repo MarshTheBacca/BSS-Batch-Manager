@@ -35,6 +35,27 @@ def import_2d(path: Path, del_indexes: Optional[tuple[int, ...]] = None,
     return final
 
 
+def deliminator(length: int, width: int, row_index: int, col_index: int,
+                delims: list = [",", "\n"]) -> str:
+    """
+    Gets the appropriate deliminator for a given row and column
+
+    Args:
+        length: The length of the array
+        width: The width of the array
+        row_index: The index of the current row
+        col_index: The index of the current column
+        delims: The deliminators to use. Defaults to [",", "\n"].
+    Returns:
+        The deliminator
+    """
+    if col_index < width - 1:
+        return delims[0]
+    elif row_index < length - 1:
+        return delims[1]
+    return ""
+
+
 def export_2d(path: Path, array: list | tuple, col_types: Optional[tuple[int]] = None,
               date_format: str = "%Y-%m-%d", datetime_format: str = "%Y-%m-%d %H:%M:%S.%f %Z") -> None:
     length = len(array)
@@ -57,68 +78,48 @@ def export_2d(path: Path, array: list | tuple, col_types: Optional[tuple[int]] =
         file.write(string)
 
 
-def deliminator(length: int, width: int, row_index: int, col_index: int,
-                delims: list = [",", "\n"]) -> str:
-    if col_index < width - 1:
-        return delims[0]
-    elif row_index < length - 1:
-        return delims[1]
-    return ""
-
-
-def export_batches(path: Path, batches: list) -> None:
-    array = []
-    for batch in batches:
-        array.extend(batch.convert_to_export_array())
-    export_2d(path, array, col_types=["str", "str", "datetime"], datetime_format="%Y %a %d %b %H:%M:%S %Z")
-
-
-def import_batches(batch_log_path: Path, output_path: Path, batches_path: Path = Path.cwd().joinpath("batches")) -> list[Batch]:
-    batch_paths = [batch for batch in batches_path.iterdir() if batch.name.endswith(".zip")]
-    # batches = [[batch, path, [run_times], prog_type],..]]
-    batch_log = import_2d(batch_log_path)
-    if not batch_log:
-        return [Batch(path.name[:4], path, []) for path in batch_paths]
-    if batch_history:
-        batch_history = converter(batch_history, data_types=("str", "str", "datetime"), datetime_format="%Y %a %d %b %H:%M:%S %Z")
-        for log in batch_history:
-            batch_names = [batch[0] for batch in batches]
-            if log[0] not in batch_names:
-                batches.append([log[0], "deleted", [log[2]], log[1]])
-            else:
-                batches[batch_names.index(log[0])][2].append(log[2])
-    return [Batch(*(batch + [Path(output_path)])) for batch in batches]
-
-
 def converter(raw_data: list[list[str]], data_types: Optional[list[str] | tuple[str, ...]] = None,
               wanted_cols: Optional[list[int] | tuple[int, ...]] = None,
               date_format: str = "%Y-%m-%d", datetime_format: str = "%Y-%m-%d %H:%M:%S.%f %Z",
               time_zone: timezone = timezone.utc) -> list:
+    """
+    Converts columns of data to the specified data types
+
+    Args:
+        raw_data: The data to be converted
+        data_types: The types of data in each column. Defaults to None.
+        wanted_cols: The columns to convert. Defaults to None.
+        date_format: The format of the date columns. Defaults to "%Y-%m-%d".
+        datetime_format: The format of the datetime columns. Defaults to "%Y-%m-%d %H:%M:%S.%f %Z".
+        time_zone: The timezone to use for datetime columns. Defaults to timezone.utc.
+    Returns:
+        The converted data
+    """
     if wanted_cols is None:
         wanted_cols = list(range(0, len(raw_data[0])))
     if data_types is None:
         data_types = ["str"] * len(raw_data[0])
-    database = []
-    for i in range(0, len(raw_data)):
-        database.append([])
-        for k in range(0, len(raw_data[i])):
-            if k in wanted_cols:
-                if data_types[k] == "date":
-                    database[i].append(datetime.strptime(raw_data[i][k], date_format).date())
-                elif data_types[k] == "str":
-                    database[i].append(str(raw_data[i][k]))
-                elif data_types[k] == "int":
-                    database[i].append(int(raw_data[i][k]))
-                elif data_types[k] == "float":
-                    try:
-                        database[i].append(float(raw_data[i][k]))
-                    except ValueError:
-                        database[i].append(0)
-                elif data_types[k] == "datetime":
-                    database[i].append(datetime.strptime(raw_data[i][k], datetime_format).replace(tzinfo=time_zone))
-                else:
-                    print("Unknown datatype detected")
-    return database
+
+    def convert(value, data_type):
+        try:
+            if data_type == "date":
+                return datetime.strptime(value, date_format).date()
+            elif data_type == "str":
+                return str(value)
+            elif data_type == "int":
+                return int(value)
+            elif data_type == "float":
+                return float(value)
+            elif data_type == "datetime":
+                return datetime.strptime(value, datetime_format).replace(tzinfo=time_zone)
+            else:
+                print("Unknown datatype detected")
+                return value
+        except ValueError:
+            print(f"Error converting value {value} to {data_type}")
+            return value
+
+    return [[convert(value, data_type) for value, data_type in zip(row, data_types) if i in wanted_cols] for i, row in enumerate(raw_data)]
 
 
 def remove_blanks(array: list[list]) -> list[list]:
