@@ -1,0 +1,20 @@
+log ./output_files/lammps.log
+units electron
+dimension 2
+
+processors * * *
+boundary p p p
+atom_style molecular
+
+read_data ./input_files/lammps_files/lammps_network.txt
+
+include ./input_files/lammps_files/lammps_potential.txt
+
+thermo 0
+thermo_style custom pe angles
+thermo_modify line yaml
+
+min_style sd
+minimize 1.0e-6 0.0 1000000 10000000
+
+
