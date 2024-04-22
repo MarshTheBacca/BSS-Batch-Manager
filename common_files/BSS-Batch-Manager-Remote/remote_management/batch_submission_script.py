@@ -13,6 +13,11 @@ from typing import Optional
 from zipfile import BadZipFile, ZipFile
 
 EXEC_NAME: str = "bond_switch_simulator.exe"
+CWD: Path = Path(__file__).parent.resolve()
+JOB_SCRIPT_TEMPLATE_PATH: Path = CWD.joinpath("job_submission_template.sh")
+EXEC_PATH: Path = CWD.joinpath(EXEC_NAME)
+TIMEOUT = 5 * 30 * 24 * 60 * 60  # Approximately 5 months
+USERNAME: str = getpass.getuser()
 
 
 def initialise_log(log_path: Path) -> None:
@@ -94,7 +99,7 @@ def import_qstat(username: str) -> list[tuple[str, str, datetime]]:
     # Every job listed in qstat has a job-ID line in this format:
     #     0        1         2      3      4          5            6
     # [job-ID] [priority] [name] [user] [state] [submit-date] [submit-time] ... and others
-    # The next line is intended like so:         Full jobname: [job-name]
+    # The next line is indented like so:         Full jobname: [job-name]
     # To extract this information, we take every line that starts with a digit (job-id) or starts with "Full jobname"
     lines = (line for line in command_lines(f"qstat -u {username} -r") if line[0].isdigit() or line.strip().startswith("Full jobname"))
     jobs = []
@@ -125,82 +130,103 @@ def get_files(path: Path) -> list[Path]:
     return [file for file in Path(path).rglob('*') if file.is_file()]
 
 
-def prepare_batch(run_path: Path, batch_desc: str, exec_name: str) -> None:
+def prepare_job(job_path: Path, job_script_template_path: Path, exec_path: Path, batch_desc: str) -> None:
     """
-    For each job, copy over initial_network and initial_lammps_files directories and the executable to the job's input_files directory
-    and create a job submission script for each job
+    Copy over initial_network and initial_lammps_files directories and the executable to the job's input_files directory
+    and create a job submission script
 
     Args:
         run_path: The path to the batch of jobs
         batch_desc: The description of the batch
         exec_name: The name of the executable to be run
-
-    Exits:
-        If there are no jobs found in the batch
     """
-    if not any(job.is_dir() and job.name != "initial_network" and job.name != "initial_lammps_files" for job in Path.iterdir(run_path)):
-        logging.error(f"No jobs found in batch: {run_path}")
-        sys.exit(1)
-    cwd = Path(__file__).parent.resolve()
-    job_script_template_path = cwd.joinpath("job_submission_template.sh")
-    exec_path = cwd.joinpath(exec_name)
-    for job in Path.iterdir(run_path):
-        if job.is_file() or job.name == "initial_network" or job.name == "initial_lammps_files":
-            continue
-        input_files_path = job.joinpath("input_files")
-        shutil.copytree(run_path.joinpath("initial_network"), input_files_path.joinpath("bss_network"))
-        shutil.copytree(run_path.joinpath("initial_lammps_files"), input_files_path.joinpath("lammps_files"))
-        shutil.copy(exec_path, job.joinpath(exec_path.name))
-        job_script_output_path = job.joinpath("job_submission_script.sh")
-        create_job_script(job_script_template_path,
-                          job_script_output_path,
-                          exec_path.name, batch_desc)
+    input_files_path = job_path.joinpath("input_files")
+    shutil.copytree(job_path.parent.joinpath("initial_network"), input_files_path.joinpath("bss_network"))
+    shutil.copytree(job_path.parent.joinpath("initial_lammps_files"), input_files_path.joinpath("lammps_files"))
+    shutil.copy(exec_path, job_path.joinpath(exec_path.name))
+    job_path.joinpath("output_files").mkdir()
+    create_job_script(job_script_template_path,
+                      job_path.joinpath("job_submission_script.sh"),
+                      exec_path.name,
+                      f"{batch_desc}_{job_path.name}")
 
 
-def submit_batch(username: str, run_path: Path, exec_name: str, batch_desc: str) -> None:
+def clean_job(job_path: Path) -> None:
+    """
+    Cleans up the job directory by removing the input_files directory and the executable
+
+    Args:
+        job_path: The path to the job directory
+    """
+    logging.info(f"Cleaning job: {job_path}")
+    batch_desc = job_path.parent.name
+    shutil.rmtree(job_path.joinpath("input_files", "lammps_files"))
+    shutil.move(job_path.joinpath("input_files", "bss_parameters.txt"), job_path.joinpath("bss_parameters.txt"))
+    shutil.rmtree(job_path.joinpath("input_files"))
+    job_path.joinpath(EXEC_NAME).unlink()
+    job_path.joinpath("job_submission_script.sh").unlink()
+    job_path.joinpath("output_files", "lammps.log").unlink()
+    try:
+        qsub_output = next(file for file in job_path.iterdir() if fnmatch.fnmatch(file.name, f"{batch_desc}_{job_path.name}.o*"))
+        shutil.move(qsub_output, job_path.joinpath("qsub.log"))
+    except StopIteration:
+        logging.warning(f"qsub log not found for job {job_path.name}")
+
+
+def submit_batch(username: str, run_path: Path) -> None:
     """
     Submits each batch with a maximum of 200 in parallel
 
     Args:
         username: The username of the user who submitted the jobs
-        exec_name: The name of the executable to be run
         run_path: The path to the batch of jobs
-        batch_desc: The description of the batch
     """
-    logging.info("Preparing batch...")
-    prepare_batch(run_path, batch_desc, exec_name)
+    batch_desc = run_path.name
+    splice_length = len(batch_desc) + 1
     logging.info("Submitting jobs...")
-    for job in Path.iterdir(run_path):
-        if job.is_file() or job.name == "initial_network" or job.name == "initial_lammps_files":
+    logging.info(f"Batch description: {batch_desc}")
+    for job_path in Path.iterdir(run_path):
+        if job_path.is_file() or job_path.name == "initial_network" or job_path.name == "initial_lammps_files":
             continue
+        initial_running_jobs = set(running_job[1] for running_job in import_qstat(username) if running_job[1].startswith(batch_desc))
+        prepare_job(job_path, JOB_SCRIPT_TEMPLATE_PATH, EXEC_PATH, batch_desc)
         # Wait until there are <201 jobs in parallel
         while len(command_lines(f'qstat | grep "{username}"')) > 200:
             time.sleep(5)
-        # Once there are <201 jobs in parallel, submit the job and start the next iteration.
-        command_lines(f"qsub -j y -o {job.resolve()} {job.joinpath('job_submission_script.sh').resolve()}")
+
+        # Once there are <201 jobs in parallel, clean finished jobs and submit the next job
+        final_running_jobs = set(running_job[1] for running_job in import_qstat(username) if running_job[1].startswith(batch_desc))
+        jobs_finished = initial_running_jobs - final_running_jobs
+        for finished_job in jobs_finished:
+            clean_job(run_path.joinpath(finished_job[splice_length:]))
+        command_lines(f"qsub -j y -o {job_path.resolve()} {job_path.joinpath('job_submission_script.sh').resolve()}")
 
 
-def wait_for_completion(username: str, batch_desc: str) -> None:
+def wait_for_completion(username: str, run_path: Path) -> None:
     """
-    Waits for all jobs in a batch to finish, or until a timeout is reached (5 months)
+    Waits for all jobs in a batch to finish, or until a timeout is reached
 
     Args:
         username: The username of the user who submitted the jobs
         batch_desc: The description of the batch
     """
-    # 5 months is approximately 5*30*24*60*60 = 10,800,000 seconds
-    timeout = 5 * 30 * 24 * 60 * 60
     start_time = time.time()
+    batch_desc = run_path.name
+    splice_length = len(batch_desc) + 1
 
-    # Now wait until there are no jobs in qstat with our batch_desc defined above, checking every 5 seconds
+    # Now wait until there are no jobs in qstat with the batch description, cleaning up any finished jobs
     while True:
-        if time.time() - start_time > timeout:
+        if time.time() - start_time > TIMEOUT:
             logging.error("Timeout reached, exiting")
             break
-        job_names: list[str] = [job[1] for job in import_qstat(username)]
-        if batch_desc not in job_names:
+        initial_running_jobs = set(job[1] for job in import_qstat(username) if job[1].startswith(batch_desc))
+        if not initial_running_jobs:
             break
         time.sleep(5)
+        final_running_jobs = set(job[1] for job in import_qstat(username) if job[1].startswith(batch_desc))
+        jobs_finished = initial_running_jobs - final_running_jobs
+        for finished_job in jobs_finished:
+            clean_job(run_path.joinpath(finished_job[splice_length:]))
 
 
 def write_dir_to_zip(zip_file: ZipFile, path: Path, arcname: str = "", exclude_files: Optional[set] = None) -> None:
@@ -220,28 +246,6 @@ def write_dir_to_zip(zip_file: ZipFile, path: Path, arcname: str = "", exclude_f
             zip_file.write(path, arcname=str(Path(arcname) / path.name))
         elif path.is_dir():
             write_dir_to_zip(zip_file, path, arcname=str(Path(arcname) / path.name))
-
-
-def create_zip(run_path: Path, batch_desc: str) -> None:
-    """
-    Creates a zip file of the initial network and lammps files,
-    the output files of each job and the qsub log but not lammps.log
-
-    Args:
-        run_path: The path to the run folder
-    """
-    with ZipFile(run_path.with_suffix('.zip'), "x") as return_zip:
-        write_dir_to_zip(return_zip, run_path.joinpath("initial_network"), arcname="initial_network")
-        write_dir_to_zip(return_zip, run_path.joinpath("initial_lammps_files"), arcname="initial_lammps_files")
-        for job in run_path.iterdir():
-            if job.is_dir() and job.name != "initial_network" and job.name != "initial_lammps_files":
-                write_dir_to_zip(return_zip, job.joinpath("output_files"), arcname=job.name, exclude_files={"lammps.log"})
-                return_zip.write(job.joinpath("input_files", "bss_parameters.txt"), arcname=f"{job.name}/bss_parameters.txt")
-                try:
-                    qsub_output = next(file for file in job.iterdir() if fnmatch.fnmatch(file.name, f"{batch_desc}.o*"))
-                    return_zip.write(qsub_output, arcname=f"{job.name}/qsub.log")
-                except StopIteration:
-                    logging.warning(f"qsub log not found for job {job.name}")
 
 
 def write_log_to_zip(zip_path: Path, log_path: Path) -> None:
@@ -269,9 +273,6 @@ def main() -> None:
         logging.error(f"You don't have permission to write to {run_path.parent}")
         sys.exit(1)
 
-    batch_desc: str = run_path.name
-    username: str = getpass.getuser()
-
     try:
         # Unzip the batch zip sent over from remote host, and delete it
         zip_path: Path = next(file for file in Path(run_path).iterdir() if file.suffix == '.zip')
@@ -281,10 +282,10 @@ def main() -> None:
         zip_path.unlink()
         # Submit the batch using qsub (maximum of 200 jobs at a time)
         logging.info("Submitting batch")
-        submit_batch(username, run_path, EXEC_NAME, batch_desc)
+        submit_batch(USERNAME, run_path)
         # Wait for the batch to finish
         logging.info("Waiting for completion")
-        wait_for_completion(username, batch_desc)
+        wait_for_completion(USERNAME, run_path)
     except StopIteration:
         logging.error(f"No zip file found in {run_path}")
         sys.exit(1)
@@ -297,7 +298,7 @@ def main() -> None:
     finally:
         try:
             logging.info(f"Zipping up run folder {run_path}")
-            create_zip(run_path, batch_desc)
+            shutil.make_archive(run_path, 'zip', run_path)
         except Exception as e:
             logging.error(f"An error occurred while creating the return zip: {e}")
         finally:
@@ -305,6 +306,7 @@ def main() -> None:
             logging.shutdown()
             write_log_to_zip(run_path.with_suffix('.zip'), log_path)
             shutil.rmtree(run_path)
+            run_path.parent.joinpath(f"{run_path.name}_completion_flag").touch()
 
 
 if __name__ == "__main__":
