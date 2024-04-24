@@ -11,13 +11,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from zipfile import BadZipFile, ZipFile
+import traceback
 
 EXEC_NAME: str = "bond_switch_simulator.exe"
 CWD: Path = Path(__file__).parent.resolve()
 JOB_SCRIPT_TEMPLATE_PATH: Path = CWD.joinpath("job_submission_template.sh")
 EXEC_PATH: Path = CWD.joinpath(EXEC_NAME)
-TIMEOUT = 5 * 30 * 24 * 60 * 60  # Approximately 5 months
+TIMEOUT: int = 30 * 24 * 60 * 60  # Approximately 1 month
 USERNAME: str = getpass.getuser()
+MAX_PARALLEL_JOBS: int = 500
 
 
 def initialise_log(log_path: Path) -> None:
@@ -43,19 +45,6 @@ def command_lines(command_array: str) -> list[str]:
     """
     lines = subprocess.run(command_array, stdout=subprocess.PIPE, shell=True).stdout.decode("utf-8").split("\n")[:-1]
     return lines
-
-
-def find_char_indexes(string: str, target_char: str, invert: bool = False) -> list[int]:
-    """
-    Finds the indexes of all occurrences of the target character in the string
-    Args:
-        string: The string to be searched
-        target_char: The character to be found
-        invert: Whether or not to invert the search
-    Returns:
-        A list of the indexes of the target character in the string
-    """
-    return [i for i, char in enumerate(string) if (char == target_char) is not invert]
 
 
 def create_job_script(template_file_path: Path,
@@ -86,7 +75,7 @@ def create_job_script(template_file_path: Path,
         new_template_file.writelines(template_lines)
 
 
-def import_qstat(username: str) -> list[tuple[str, str, datetime]]:
+def import_qstat(username: str) -> list[tuple[int, str, str, datetime]]:
     """
     Gets the job id, job name and start time of all jobs in qstat for a given username
 
@@ -107,27 +96,16 @@ def import_qstat(username: str) -> list[tuple[str, str, datetime]]:
         if i % 2 == 0:
             # The job-ID line
             job_data = line.split()
-            job_id = job_data[0]
+            job_id = int(job_data[0])
             start_date = datetime.strptime(job_data[5], "%m/%d/%Y").date()
             start_time = datetime.strptime(job_data[6], "%H:%M:%S").time()
-        else:
-            # The job-name line
-            job_name = line.split()[2]
-            start = datetime.combine(start_date, start_time, tzinfo=timezone.utc)
-            jobs.append((job_id, job_name, start))
+            job_status = job_data[4]
+            continue
+        # The job-name line
+        job_name = line.split()[2]
+        start = datetime.combine(start_date, start_time, tzinfo=timezone.utc)
+        jobs.append((job_id, job_name, job_status, start))
     return jobs
-
-
-def get_files(path: Path) -> list[Path]:
-    """
-    Gets all the paths inside a path that are files recursively
-
-    Args:
-        path: The path to search for files in
-    Returns:
-        A list of all the paths that are files inside the given path
-    """
-    return [file for file in Path(path).rglob('*') if file.is_file()]
 
 
 def prepare_job(job_path: Path, job_script_template_path: Path, exec_path: Path, batch_desc: str) -> None:
@@ -151,113 +129,119 @@ def prepare_job(job_path: Path, job_script_template_path: Path, exec_path: Path,
                       f"{batch_desc}_{job_path.name}")
 
 
-def clean_job(job_path: Path) -> None:
+def safe_remove(path: Path) -> None:
+    try:
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def safe_move(source: Path, destination: Path) -> None:
+    try:
+        shutil.move(source, destination)
+    except FileNotFoundError:
+        pass
+
+
+def clean_job(job_path: Path, qsub_output: Path) -> None:
     """
     Cleans up the job directory by removing the input_files directory and the executable
+    Works for partially or already cleaned jobs
 
     Args:
         job_path: The path to the job directory
+        qsub_output: The path to the qsub log file
     """
-    logging.info(f"Cleaning job: {job_path}")
-    batch_desc = job_path.parent.name
-    shutil.rmtree(job_path.joinpath("input_files", "lammps_files"))
-    shutil.move(job_path.joinpath("input_files", "bss_parameters.txt"), job_path.joinpath("bss_parameters.txt"))
-    shutil.rmtree(job_path.joinpath("input_files"))
-    job_path.joinpath(EXEC_NAME).unlink()
-    job_path.joinpath("job_submission_script.sh").unlink()
-    job_path.joinpath("output_files", "lammps.log").unlink()
-    try:
-        qsub_output = next(file for file in job_path.iterdir() if fnmatch.fnmatch(file.name, f"{batch_desc}_{job_path.name}.o*"))
-        shutil.move(qsub_output, job_path.joinpath("qsub.log"))
-    except StopIteration:
-        logging.warning(f"qsub log not found for job {job_path.name}")
+    safe_move(job_path.joinpath("input_files", "bss_parameters.txt"), job_path.joinpath("bss_parameters.txt"))
+    safe_move(qsub_output, job_path.joinpath("qsub.log"))
+
+    safe_remove(job_path.joinpath("input_files"))
+    safe_remove(job_path.joinpath(EXEC_NAME))
+    safe_remove(job_path.joinpath("job_submission_script.sh"))
+    safe_remove(job_path.joinpath("output_files", "lammps.log"))  # This tends to be a very large file
+
+
+def clean_finished_jobs(run_path: Path, batch_desc: str) -> None:
+    """
+    Identifies and cleans up finished jobs in the run directory
+
+    Args:
+        run_path: The path to the batch of jobs
+        batch_desc: The description of the batch
+    """
+    for job_path in run_path.iterdir():
+        if job_path.is_file() or job_path.name == "initial_network" or job_path.name == "initial_lammps_files":
+            continue
+        try:
+            qsub_output_path = next(file for file in job_path.iterdir() if fnmatch.fnmatch(file.name, f"{batch_desc}_{job_path.name}.o*"))
+        except StopIteration:
+            # If qsub log is not found, the job is still running
+            continue
+        clean_job(job_path, qsub_output_path)
+    errored_jobs = {job[1]: job[0] for job in import_qstat(USERNAME) if job[2] == "Eqw"}
+    for errored_job, id in errored_jobs.values():
+        logging.warn(f"Job failed: {errored_job}")
+        command_lines(f"qdel {id}")
 
 
 def submit_batch(username: str, run_path: Path) -> None:
     """
-    Submits each batch with a maximum of 200 in parallel
+    Submits each batch with a maximum of MAX_PARALLEL_JOBS jobs in parallel
+    Cleans up any finished batches
 
     Args:
         username: The username of the user who submitted the jobs
         run_path: The path to the batch of jobs
     """
-    batch_desc = run_path.name
-    splice_length = len(batch_desc) + 1
     logging.info("Submitting jobs...")
-    logging.info(f"Batch description: {batch_desc}")
+    cleaning_interval = 5
+    counter = 1
+    batch_desc = run_path.name
     for job_path in Path.iterdir(run_path):
         if job_path.is_file() or job_path.name == "initial_network" or job_path.name == "initial_lammps_files":
             continue
-        initial_running_jobs = set(running_job[1] for running_job in import_qstat(username) if running_job[1].startswith(batch_desc))
-        prepare_job(job_path, JOB_SCRIPT_TEMPLATE_PATH, EXEC_PATH, batch_desc)
-        # Wait until there are <201 jobs in parallel
-        while len(command_lines(f'qstat | grep "{username}"')) > 200:
+        # Wait until there are < MAX_PARALLEL_JOBS jobs in parallel
+        while len(command_lines(f'qstat | grep "{username}"')) >= MAX_PARALLEL_JOBS:
             time.sleep(5)
-
-        # Once there are <201 jobs in parallel, clean finished jobs and submit the next job
-        final_running_jobs = set(running_job[1] for running_job in import_qstat(username) if running_job[1].startswith(batch_desc))
-        jobs_finished = initial_running_jobs - final_running_jobs
-        for finished_job in jobs_finished:
-            clean_job(run_path.joinpath(finished_job[splice_length:]))
+        prepare_job(job_path, JOB_SCRIPT_TEMPLATE_PATH, EXEC_PATH, batch_desc)
+        logging.info(f"qsub -j y -o {job_path.resolve()} {job_path.joinpath('job_submission_script.sh').resolve()}")
         command_lines(f"qsub -j y -o {job_path.resolve()} {job_path.joinpath('job_submission_script.sh').resolve()}")
+        if counter % cleaning_interval == 0:
+            clean_finished_jobs(run_path, batch_desc)
+        counter += 1
 
-
-def wait_for_completion(username: str, run_path: Path) -> None:
-    """
-    Waits for all jobs in a batch to finish, or until a timeout is reached
-
-    Args:
-        username: The username of the user who submitted the jobs
-        batch_desc: The description of the batch
-    """
+    logging.info("Waiting for completion...")
     start_time = time.time()
-    batch_desc = run_path.name
-    splice_length = len(batch_desc) + 1
-
-    # Now wait until there are no jobs in qstat with the batch description, cleaning up any finished jobs
-    while True:
+    while len(command_lines(f'qstat | grep "{username}"')) > 0:
         if time.time() - start_time > TIMEOUT:
             logging.error("Timeout reached, exiting")
             break
-        initial_running_jobs = set(job[1] for job in import_qstat(username) if job[1].startswith(batch_desc))
-        if not initial_running_jobs:
-            break
+        if counter % cleaning_interval == 0:
+            clean_finished_jobs(run_path, batch_desc)
+        counter += 1
         time.sleep(5)
-        final_running_jobs = set(job[1] for job in import_qstat(username) if job[1].startswith(batch_desc))
-        jobs_finished = initial_running_jobs - final_running_jobs
-        for finished_job in jobs_finished:
-            clean_job(run_path.joinpath(finished_job[splice_length:]))
+    clean_finished_jobs(run_path, batch_desc)
 
 
-def write_dir_to_zip(zip_file: ZipFile, path: Path, arcname: str = "", exclude_files: Optional[set] = None) -> None:
+def write_log_to_zip(zip_path: Path, log_path: Path, arcname: Optional[str] = None) -> None:
     """
-    Writes a directory to a zip file
-
-    Args:
-        zip_file: The zip file to write to
-        path: The path to the directory to write
-        arcname: The name of the directory in the zip file
-        exclude_files: A set of files to exclude from the zip
-    """
-    if exclude_files is None:
-        exclude_files = {}
-    for path in path.iterdir():
-        if path.is_file() and path.name not in exclude_files:
-            zip_file.write(path, arcname=str(Path(arcname) / path.name))
-        elif path.is_dir():
-            write_dir_to_zip(zip_file, path, arcname=str(Path(arcname) / path.name))
-
-
-def write_log_to_zip(zip_path: Path, log_path: Path) -> None:
-    """
-    Writes the log file to the zip file (needs to be done at the end to contain all messages)
+    Writes the log file to the zip file and removes the original
 
     Args:
         zip_path: The path to the zip file
         log_path: The path to the log file
     """
+    if arcname is None:
+        arcname = log_path.name
     with ZipFile(zip_path, "a") as return_zip:
-        return_zip.write(log_path, arcname=log_path.name)
+        return_zip.write(log_path, arcname=arcname)
+    try:
+        log_path.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def main() -> None:
@@ -265,7 +249,7 @@ def main() -> None:
     parser.add_argument("-p", type=str, help="Path to run folder", metavar="path", required=True)
     args = parser.parse_args()
     run_path: Path = Path(args.p).resolve()
-    log_path = run_path.joinpath("batch_submission_script.log")
+    log_path = run_path.parent.joinpath(f"{run_path.name}_batch_submission_script.log")
     initialise_log(log_path)
     logging.info("Starting batch submission script")
 
@@ -275,17 +259,13 @@ def main() -> None:
 
     try:
         # Unzip the batch zip sent over from remote host, and delete it
-        zip_path: Path = next(file for file in Path(run_path).iterdir() if file.suffix == '.zip')
+        zip_path: Path = next(file for file in run_path.iterdir() if file.suffix == '.zip')
         logging.info(f"Unzipping batch zip {zip_path}")
         with ZipFile(zip_path, 'r') as batch_zip:
             batch_zip.extractall(run_path)
         zip_path.unlink()
         # Submit the batch using qsub (maximum of 200 jobs at a time)
-        logging.info("Submitting batch")
         submit_batch(USERNAME, run_path)
-        # Wait for the batch to finish
-        logging.info("Waiting for completion")
-        wait_for_completion(USERNAME, run_path)
     except StopIteration:
         logging.error(f"No zip file found in {run_path}")
         sys.exit(1)
@@ -294,6 +274,7 @@ def main() -> None:
         sys.exit(1)
     except Exception as e:
         logging.error(f"An unexpected error occured: {e}")
+        logging.error(traceback.format_exc())
         sys.exit(1)
     finally:
         try:
@@ -304,7 +285,7 @@ def main() -> None:
         finally:
             logging.info("Complete!")
             logging.shutdown()
-            write_log_to_zip(run_path.with_suffix('.zip'), log_path)
+            write_log_to_zip(run_path.with_suffix(".zip"), log_path, "batch_submission_script.log")
             shutil.rmtree(run_path)
             run_path.parent.joinpath(f"{run_path.name}_completion_flag").touch()
 
