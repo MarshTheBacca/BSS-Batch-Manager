@@ -1,10 +1,14 @@
 import multiprocessing
 import subprocess
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Any, Type
+from tabulate import tabulate
 
-from .custom_types import BondSelectionProcess, StructureType, BSSType
+from .custom_types import (BondSelectionProcess, BSSType, StructureType)
 from .var import Var
+from .validation_utils import get_valid_int
 
 
 def find_char_indexes(string: str, target_char: str, invert: bool = False) -> list[int]:
@@ -97,8 +101,7 @@ def value_to_string(value: BSSType) -> str:
         return str(value)
 
 
-def generate_job_name(changing_vars: list[Var],
-                      array: list[BSSType]) -> str:
+def generate_job_name(changing_vars: list[Var], array: list[BSSType]) -> str:
     """
     Generates a job name by concatenating each variable name with its given value
 
@@ -110,6 +113,48 @@ def generate_job_name(changing_vars: list[Var],
     """
     job_name = ""
     for k, value in enumerate(array):
-        job_name += f"{changing_vars[k].name}_{value_to_string(value)}__"
+        job_name += f"{changing_vars[k].short_name}_{value_to_string(value)}__"
         changing_vars[k].value = value
     return clean_name(job_name[:-2])
+
+
+def select_path(path: Path, prompt: str, is_file: bool) -> Path | None:
+    """
+    Select a path to load from the given directory
+    Args:
+        path: directory to search for paths
+        is_file: if True, search for files, else search for directories
+    Returns:
+        the path of the file/directory to load or None if the user cancels
+    """
+    path_array = []
+    paths = []
+    sorted_paths = sorted(Path.iterdir(path), key=lambda p: p.stat().st_ctime, reverse=True)
+    for i, path in enumerate(sorted_paths):
+        if (path.is_file() if is_file else path.is_dir()):
+            name = path.name
+            creation_date = datetime.fromtimestamp(path.stat().st_ctime).strftime('%d/%m/%Y %H:%M:%S')
+            path_array.append((i + 1, name, creation_date))
+            paths.append(path)
+    if not path_array:
+        print(f"No {'files' if is_file else 'directories'} found in {path}")
+        return None
+    exit_num = len(path_array) + 1
+    print(tabulate(path_array, headers=["Number", "Name", "Creation Date"], tablefmt="fancy_grid"))
+    prompt += f" ({exit_num} to exit):\n"
+    option = get_valid_int(prompt, 1, exit_num)
+    if option == exit_num:
+        return None
+    return paths[option - 1]
+
+
+def select_network(networks_path: Path, prompt: str) -> Path | None:
+    return select_path(networks_path, prompt, is_file=False)
+
+
+def select_potential(potentials_path: Path, prompt: str) -> Path | None:
+    return select_path(potentials_path, prompt, is_file=True)
+
+
+def select_finished_batch(output_files_path: Path, prompt: str) -> Path | None:
+    return select_path(output_files_path, prompt, is_file=False)
