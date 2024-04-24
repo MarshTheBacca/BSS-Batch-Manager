@@ -90,7 +90,8 @@ class BatchData:
         option = get_valid_int(f"Which batch would you like to submit? ({exit_num} to exit)\n", 1, exit_num)
         if option == exit_num:
             return
-        if not (confirm()):
+        selected_batch: Batch = self.batches[option - 1]
+        if not (confirm(f"Are you sure you want to submit {selected_batch.name} to {hostname}? (y/n)\n")):
             return
         try:
             ssh = ssh_login_silent(username=username, hostname=hostname)
@@ -98,7 +99,7 @@ class BatchData:
             print(e)
             return
         ssh.close()
-        self.batches[option - 1].submit(username, hostname, output_path, submit_script_path)
+        selected_batch.submit(username, hostname, output_path, submit_script_path)
         self.log_batch(self.batches[option - 1])
         print(f"Batch {self.batches[option - 1].name} submitted successfully!")
 
