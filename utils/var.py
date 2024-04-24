@@ -25,6 +25,7 @@ class Var(ABC):
     def __post_init__(self):
         if self.value is not None and not isinstance(self.value, (int, float, str, bool, StructureType, BondSelectionProcess)):
             raise ValueError(f"Invalid type for variable {self.name}: {type(self.value)}")
+        self.short_name = "_".join([word[:4] for word in self.name.split()])
 
     @abstractmethod
     def set_value(self, value: BSSType) -> None:
@@ -53,6 +54,7 @@ class IntVar(Var):
                                                                           VariationMode.NUMS])
 
     def __post_init__(self):
+        super().__post_init__()
         self.round_nums = True
         self.expected_type = int
 
@@ -76,6 +78,7 @@ class FloatVar(Var):
                                                                           VariationMode.NUMS])
 
     def __post_init__(self):
+        super().__post_init__()
         self.round_nums = False
         self.expected_type = float
 
@@ -105,6 +108,7 @@ class FloatVar(Var):
 @dataclass
 class BoolVar(Var):
     def __post_init__(self):
+        super().__post_init__()
         self.expected_type = bool
 
     def set_value(self, value: bool) -> None:
@@ -125,27 +129,9 @@ class BoolVar(Var):
 
 
 @dataclass
-class StrVar(Var):
-    variation_modes: list[VariationMode] = field(default_factory=lambda: [VariationMode.ANYSTRING])
-
-    def __post_init__(self):
-        self.expected_type = str
-
-    def set_value(self, value: str) -> None:
-        if not isinstance(value, str):
-            raise ValueError(f"Value {value} not a string")
-        self.value = value
-
-    def set_value_interactive(self) -> None:
-        prompt: str = f"Enter new value for {self.name} ('c' to cancel)\n"
-        new_value = input(prompt)
-        if new_value != "c":
-            self.set_value(new_value)
-
-
-@dataclass
 class BondSelectionVar(Var):
     def __post_init__(self):
+        super().__post_init__()
         self.expected_type = BondSelectionProcess
         self.variation_modes = [VariationMode.BONDSELECTIONPROCESS]
 
@@ -165,6 +151,7 @@ class BondSelectionVar(Var):
 @dataclass
 class StructureTypeVar(Var):
     def __post_init__(self):
+        super().__post_init__()
         self.expected_type = StructureType
         self.variation_modes = [VariationMode.STRUCTURETYPE]
 
