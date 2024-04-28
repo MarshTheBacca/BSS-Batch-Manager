@@ -1,45 +1,19 @@
 import shutil
+import traceback
 from copy import deepcopy
 from itertools import product
 from pathlib import Path
 
-from utils import (BatchData, BSSInputData, BSSType, generate_job_name, get_options,
-                   get_valid_int, get_valid_str, select_network,
-                   select_potential)
+from matplotlib import pyplot as plt
+
+from utils import (BatchData, BatchOutputData, BSSInputData, BSSType,
+                   generate_job_name, get_batch_name, get_options,
+                   get_valid_int, select_network, select_potential)
 
 NUMBER_ORDERS = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth",
                  9: "ninth", 10: "tenth"}
 
 CWD = Path(__file__).parent
-
-
-def get_batch_name(batches_path: Path) -> str | None:
-    """
-    Ask the user for a name for the batch
-
-    Args:
-        batches_path: the path to the batches directory
-    Returns:
-        the name of the batch
-    Raises:
-        UserCancelledError: if the user cancels entering a batch name
-    """
-    while True:
-        batch_name = get_valid_str("Enter a name for the batch ('c' to cancel)\n", forbidden_chars=[" ", "/", r"\\"],
-                                   lower=1, upper=40)
-        if batch_name == "c":
-            return None
-        if batch_name[0].isdigit():
-            print("Batch names cannot start with a number, please try again")
-            continue
-        if batches_path.joinpath(f"{batch_name}.zip").exists():
-            print("A batch with that name already exists, please try again")
-            continue
-        try:
-            batches_path.joinpath(batch_name).mkdir()
-            return batch_name
-        except FileExistsError:
-            print("A batch with that name already exists, please try again")
 
 
 def create_bss_input_parameters(template_data: BSSInputData,
@@ -50,11 +24,13 @@ def create_bss_input_parameters(template_data: BSSInputData,
                                 potential_path: Path) -> None:
     meshgrid = list(product(*vary_arrays))
     batch_name = get_batch_name(batches_path)
+    if batch_name is None:
+        return
     temp_data: BSSInputData = deepcopy(template_data)
     changing_vars = [temp_data.table_relevant_variables[i] for i in var_indexes]
     for array in meshgrid:
         job_name = generate_job_name(changing_vars, array)
-        input_files_path = batches_path.joinpath(batch_name, job_name, "input_files")
+        input_files_path = batches_path.joinpath(batch_name, "jobs", job_name, "input_files")
         input_files_path.mkdir(parents=True)
         temp_data.export(input_files_path.joinpath("bss_parameters.txt"))
     batch_path = batches_path.joinpath(batch_name)
@@ -106,6 +82,19 @@ def create_batch(template_data: BSSInputData, batches_path: Path, networks_path:
     create_bss_input_parameters(template_data, vary_arrays, selected_var_indexes, batches_path, network_path, potential_path)
 
 
+def analyse_batch(output_files_path: Path) -> None:
+    network = select_network(output_files_path, "Select a network to analyse")
+    if network is None:
+        return
+    runs = sorted([run for run in network.iterdir() if run.is_dir()], key=lambda x: int(x.name[4:]))
+    print(f"Reading from {runs[-1].name} ...")
+    batch_output_data = BatchOutputData.from_files(runs[-1])
+    batch_output_data.create_images(None, seed_skip=True)
+    # batch_output_data.plot_radial_distribution(batch_output_data.jobs)
+    # plt.show()
+    # plt.clf()
+
+
 def main() -> None:
     try:
         options = get_options(CWD.joinpath("config.csv"))
@@ -148,7 +137,7 @@ def main() -> None:
             elif option == 4:
                 batch_data.submit_batch(output_path, CWD.joinpath("utils", "batch_submit.py"), username, hostname)
             elif option == 5:
-                print("Not yet implemented")
+                analyse_batch(output_path)
             elif option == 6:
                 break
     except FileNotFoundError as e:
@@ -157,6 +146,8 @@ def main() -> None:
         print(f"Permission error: {e}")
     except Exception as e:
         print(f"An unexpected error occured: {e}")
+        print("Traceback: ")
+        print(traceback.format_exc())
 
 
 if __name__ == "__main__":
