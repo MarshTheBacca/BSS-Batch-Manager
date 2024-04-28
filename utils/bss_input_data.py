@@ -55,7 +55,7 @@ class BSSInputData:
                                                          IntVar(name="Maximum ring size"),
                                                          FloatVar(name="Max bond length", lower=0),
                                                          FloatVar(name="Max bond angle", lower=0, upper=360),
-                                                         BoolVar(name="Enable fixed rings", variation_modes=[VariationMode.BOOLEAN], is_table_relevant=False)))
+                                                         BoolVar(name="Enable fixed rings", is_table_relevant=False)))
             bond_selection_process_section = read_section(input_file, "Bond Selection Process",
                                                           (IntVar(name="Random seed"),
                                                            BondSelectionVar(name="Bond selection process", is_table_relevant=True),
@@ -68,7 +68,7 @@ class BSSInputData:
                                                          IntVar(name="Thermalising steps", lower=0)))
             analysis_section = read_section(input_file, "Analysis",
                                             (IntVar(name="Analysis write interval", lower=0, is_table_relevant=False),
-                                             BoolVar(name="Write movie file", variation_modes=[VariationMode.BOOLEAN], is_table_relevant=False)))
+                                             BoolVar(name="Write movie file", is_table_relevant=False)))
             return BSSInputData([network_restrictions_section, bond_selection_process_section,
                                  temperature_schedule_section, analysis_section])
 
