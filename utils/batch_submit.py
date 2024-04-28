@@ -11,7 +11,7 @@ import paramiko
 from ssh_utils import (LogInException, command_lines, land_directory,
                        sftp_exists, ssh_login_silent)
 
-TIMEOUT = 5 * 30 * 24 * 60 * 60  # 5 months is approximately 5*30*24*60*60 = 10,800,000 seconds
+TIMEOUT = 1 * 30 * 24 * 60 * 60  # 1 month in seconds
 
 
 class InitialiseRemoteError(Exception):
@@ -188,9 +188,9 @@ def main() -> None:
             logging.error(f"An error occurred while executing the remote script: {e}")
             raise
         try:
-            logging.info(f"Checking for completion_flag at\n{coulson_run_path.joinpath("completion_flag")}")
-            cfe_path = coulson_home_path.joinpath("BSS-Batch-Manager-Remote", "remote_management", "check_file_exists.sh").as_posix()
             completion_flag_path = coulson_run_path.parent.joinpath(f"{coulson_run_path.name}_completion_flag").as_posix()
+            logging.info(f"Checking for completion_flag at\n{completion_flag_path}")
+            cfe_path = coulson_home_path.joinpath("BSS-Batch-Manager-Remote", "remote_management", "check_file_exists.sh").as_posix()
             wait_for_completion(ssh, completion_flag_path, cfe_path)
             logging.info("Completion flag found!")
         except paramiko.SSHException as e:
