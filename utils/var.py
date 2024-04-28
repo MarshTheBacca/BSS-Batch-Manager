@@ -16,10 +16,6 @@ class Var(ABC):
     value: Optional[BSSType] = None
     is_table_relevant: bool = True
     variation_modes: list[VariationMode] = field(default_factory=list)
-    certain_strings: Optional[list[str]] = None
-    lower: float | int = float("-inf")
-    upper: float | int = float("inf")
-    round_nums: bool = False
     expected_type: Type[Any] = None
 
     def __post_init__(self):
@@ -46,9 +42,23 @@ class Var(ABC):
             return None
         return self.variation_modes[selection - 1].get_vary_array(self.lower, self.upper, self.round_nums)
 
+    def __eq__(self, other) -> bool:
+        """
+        Checks if two Var objects are equal based on their names
+        """
+        if isinstance(other, Var):
+            return self.name == other.name
+        return False
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
 
 @dataclass
 class IntVar(Var):
+
+    lower: float | int = float("-inf")
+    upper: float | int = float("inf")
     variation_modes: list[VariationMode] = field(default_factory=lambda: [VariationMode.STARTENDNUM,
                                                                           VariationMode.STARTENDSTEP,
                                                                           VariationMode.NUMS])
@@ -70,9 +80,14 @@ class IntVar(Var):
         if new_value is not None:
             self.set_value(new_value)
 
+    def __hash__(self) -> int:
+        return hash(self.name)
+
 
 @dataclass
 class FloatVar(Var):
+    lower: float | int = float("-inf")
+    upper: float | int = float("inf")
     variation_modes: list[VariationMode] = field(default_factory=lambda: [VariationMode.STARTENDNUM,
                                                                           VariationMode.STARTENDSTEP,
                                                                           VariationMode.NUMS])
@@ -104,12 +119,16 @@ class FloatVar(Var):
                 break
             print(f"Value {new_value} not in range {self.lower} to {self.upper}")
 
+    def __hash__(self) -> int:
+        return hash(self.name)
+
 
 @dataclass
 class BoolVar(Var):
     def __post_init__(self):
         super().__post_init__()
         self.expected_type = bool
+        self.variation_modes = [VariationMode.BOOLEAN]
 
     def set_value(self, value: bool) -> None:
         if not isinstance(value, bool):
@@ -126,6 +145,9 @@ class BoolVar(Var):
                 self.set_value(options[new_value])
                 break
             print("Invalid input")
+
+    def __hash__(self) -> int:
+        return hash(self.name)
 
 
 @dataclass
@@ -147,6 +169,9 @@ class BondSelectionVar(Var):
             return
         self.set_value(list(BondSelectionProcess)[option - 1])
 
+    def __hash__(self) -> int:
+        return hash(self.name)
+
 
 @dataclass
 class StructureTypeVar(Var):
@@ -167,3 +192,6 @@ class StructureTypeVar(Var):
         if option == 6:
             return
         self.set_value(StructureType(list(StructureType)[option - 1]))
+
+    def __hash__(self) -> int:
+        return hash(self.name)
