@@ -8,7 +8,7 @@ from tabulate import tabulate
 
 from .custom_types import (BondSelectionProcess, BSSType, StructureType)
 from .var import Var
-from .validation_utils import get_valid_int
+from .validation_utils import get_valid_int, get_valid_str
 
 
 def find_char_indexes(string: str, target_char: str, invert: bool = False) -> list[int]:
@@ -158,3 +158,32 @@ def select_potential(potentials_path: Path, prompt: str) -> Path | None:
 
 def select_finished_batch(output_files_path: Path, prompt: str) -> Path | None:
     return select_path(output_files_path, prompt, is_file=False)
+
+
+def get_batch_name(batches_path: Path) -> str | None:
+    """
+    Ask the user for a name for the batch
+
+    Args:
+        batches_path: the path to the batches directory
+    Returns:
+        the name of the batch
+    Raises:
+        UserCancelledError: if the user cancels entering a batch name
+    """
+    while True:
+        batch_name = get_valid_str("Enter a name for the batch ('c' to cancel)\n", forbidden_chars=[" ", "/", r"\\"],
+                                   lower=1, upper=40)
+        if batch_name == "c":
+            return None
+        if batch_name[0].isdigit():
+            print("Batch names cannot start with a number, please try again")
+            continue
+        if batches_path.joinpath(f"{batch_name}.zip").exists():
+            print("A batch with that name already exists, please try again")
+            continue
+        try:
+            batches_path.joinpath(batch_name).mkdir()
+            return batch_name
+        except FileExistsError:
+            print("A batch with that name already exists, please try again")
