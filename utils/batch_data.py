@@ -77,6 +77,8 @@ class BatchData:
         if option is None:
             return
         batch = self.batches.pop(option - 1)
+        if not confirm(f"Are you sure you want to delete {batch.name}? (y/n)\n"):
+            return
         batch.delete()
         self.deleted_batches.append(batch)
         print(f"Batch {batch.name} deleted successfully!")
