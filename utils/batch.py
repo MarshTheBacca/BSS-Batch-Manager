@@ -26,13 +26,12 @@ class Batch:
         self.run_times = sorted(self.run_times)
         try:
             with ZipFile(self.path, "r") as batch_zip:
-                exclude_folders = ("initial_lammps_files", "initial_network")
-                self.jobs: set[str] = set(sub_path.split('/')[0] for sub_path in batch_zip.namelist()
-                                          if '/' in sub_path and sub_path.split('/')[0] not in exclude_folders)
+                self.jobs: set[str] = set(sub_path.split('/')[1] for sub_path in batch_zip.namelist()
+                                          if sub_path.startswith('jobs/') and sub_path.split('/')[1])
         except FileNotFoundError:
             if not self.deleted:
                 raise EmptyBatchError(f"Batch {self.name} does not exist")
-            self.jobs = []
+            self.jobs = set()
 
         self.num_jobs: int = len(self.jobs)
         self.num_runs: int = len(self.run_times)
