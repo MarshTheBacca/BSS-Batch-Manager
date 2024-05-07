@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 
 from utils import (BatchData, BatchOutputData, BSSInputData, BSSType,
                    generate_job_name, get_batch_name, get_options,
-                   get_valid_int, select_network, select_potential)
+                   get_valid_int, select_network, select_potential, receive_batches)
 
 NUMBER_ORDERS = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth",
                  9: "ninth", 10: "tenth"}
@@ -23,6 +23,7 @@ def create_bss_input_parameters(template_data: BSSInputData,
                                 network_path: Path,
                                 potential_path: Path) -> None:
     meshgrid = list(product(*vary_arrays))
+    print(f"You selected network: {network_path.name}")
     batch_name = get_batch_name(batches_path)
     if batch_name is None:
         return
@@ -89,10 +90,9 @@ def analyse_batch(output_files_path: Path) -> None:
     runs = sorted([run for run in network.iterdir() if run.is_dir()], key=lambda x: int(x.name[4:]))
     print(f"Reading from {runs[-1].name} ...")
     batch_output_data = BatchOutputData.from_files(runs[-1])
-    batch_output_data.create_images(None, seed_skip=True)
-    # batch_output_data.plot_radial_distribution(batch_output_data.jobs)
-    # plt.show()
-    # plt.clf()
+    batch_output_data.plot_radial_distribution(refresh=True)
+    plt.show()
+    plt.clf()
 
 
 def main() -> None:
@@ -125,7 +125,7 @@ def main() -> None:
         batch_data = BatchData.from_files(common_files_path.joinpath("batch_log.csv"), batches_path)
         while True:
             option = get_valid_int("What would you like to do?\n1) Create a batch\n2) Delete a batch\n"
-                                   "3) Edit the batch template\n4) Submit batch to host\n5) Analyse a batch\n6) Exit\n", 1, 6)
+                                   "3) Edit the batch template\n4) Submit batch to host\n5) Receive Batches\n6) Analyse a batch\n7) Exit\n", 1, 7)
             if option == 1:
                 create_batch(template_data, batches_path, networks_path, potentials_path)
                 batch_data.refresh(batches_path)
@@ -137,8 +137,10 @@ def main() -> None:
             elif option == 4:
                 batch_data.submit_batch(output_path, CWD.joinpath("utils", "batch_submit.py"), username, hostname)
             elif option == 5:
-                analyse_batch(output_path)
+                receive_batches(username, hostname, output_path)
             elif option == 6:
+                analyse_batch(output_path)
+            elif option == 7:
                 break
     except FileNotFoundError as e:
         print(f"File not found: {e}")
