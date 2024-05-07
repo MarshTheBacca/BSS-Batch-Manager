@@ -256,7 +256,7 @@ def submit_batch(username: str, run_path: Path) -> None:
 
     start_time = time.time()
     logging.info("Waiting for completion...")
-    while submitted_jobs:
+    while len([job for job in import_qstat(username) if job[1].startswith(batch_desc)]) > 0:
         if time.time() - start_time > TIMEOUT:
             logging.error("Timeout reached, exiting")
             break
@@ -265,8 +265,9 @@ def submit_batch(username: str, run_path: Path) -> None:
             counter = 0
         counter += 1
         time.sleep(5)
-    clean_finished_jobs(jobs_path, submitted_jobs, username, batch_desc, True)
     logging.info("Performing final clean up...")
+    time.sleep(ASSUMPTION_TIME)
+    clean_finished_jobs(jobs_path, submitted_jobs, username, batch_desc, True)
     emergency_clean(jobs_path)
 
 
