@@ -16,7 +16,7 @@ Temperature Schedule
 5.0                           Thermalising temperature
 0.0                           Annealing start temperature
 -5.0                          Annealing end temperature
-20000                         Annealing steps
+18000                         Annealing steps
 2000                          Thermalising steps
 --------------------------------------------------
 Analysis
