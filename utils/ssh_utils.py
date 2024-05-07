@@ -1,5 +1,8 @@
-import paramiko
+import stat
 from pathlib import Path
+
+import paramiko
+import shutil
 
 
 class LogInException(Exception):
@@ -129,3 +132,54 @@ def land_directory(sftp: paramiko.SFTPClient, remote_path: Path) -> None:
             sftp.chdir(basename)
         except IOError:
             raise IOError(f"Could not make remote directory {remote_path}, check permissions")
+
+
+def receive_batches(username: str, hostname: str, output_path: Path) -> None:
+    """
+    Receives batches from the host, deleting batch files and empty batch folders along the way
+
+    Args:
+        username (str): username to log in to host
+        hostname (str): the server's hostname
+        output_path (Path): the path to download and exrtact batches to
+    """
+    ssh = ssh_login_silent(username, hostname)
+    sftp = ssh.open_sftp()
+    bmr_path = Path(command_lines(ssh, "readlink -f ~/")[0]).joinpath("BSS-Batch-Manager-Remote")
+    none_found = True
+    for name in sftp.listdir(bmr_path.as_posix()):
+        if name == "remote_management":
+            continue
+        full_path = bmr_path.joinpath(name)
+        if not stat.S_ISDIR(sftp.stat(full_path.as_posix()).st_mode):
+            continue
+        sub_files = sftp.listdir(full_path.as_posix())
+        if not sub_files:
+            sftp.rmdir(full_path.as_posix())
+            continue
+        for sub_file in sub_files:
+            if not sub_file.endswith("completion_flag"):
+                continue
+            print(f"Identified completion_flag file: {sub_file}")
+            none_found = False
+            try:
+                run_number = int(sub_file.split('_')[-3])
+            except TypeError:
+                print(f"TypeError while extracting integer from {sub_file}")
+                return
+            batch_name = '_'.join(sub_file.split('_')[:-4])
+            zip_path = full_path.joinpath(f"{batch_name}_run_{run_number}.zip")
+            save_path = output_path.joinpath(batch_name, f"{batch_name}_run_{run_number}.zip")
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            print("Downloading batch...")
+            sftp.get(zip_path.as_posix(), save_path.as_posix())
+            print("Deleting zip and completion_flag files")
+            sftp.remove(zip_path.as_posix())
+            sftp.remove(full_path.joinpath(sub_file).as_posix())
+            extract_path = save_path.parent.joinpath(f"run_{run_number}")
+            extract_path.mkdir(parents=True, exist_ok=True)
+            print("Extracting batch...")
+            shutil.unpack_archive(filename=save_path, extract_dir=extract_path)
+            save_path.unlink()
+    if none_found:
+        print("No batches to receive\n")
