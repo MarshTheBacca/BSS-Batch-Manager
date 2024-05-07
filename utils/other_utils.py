@@ -130,12 +130,14 @@ def select_path(path: Path, prompt: str, is_file: bool) -> Path | None:
     path_array = []
     paths = []
     sorted_paths = sorted(Path.iterdir(path), key=lambda p: p.stat().st_ctime, reverse=True)
-    for i, path in enumerate(sorted_paths):
+    count = 1
+    for path in sorted_paths:
         if (path.is_file() if is_file else path.is_dir()):
             name = path.name
             creation_date = datetime.fromtimestamp(path.stat().st_ctime).strftime('%d/%m/%Y %H:%M:%S')
-            path_array.append((i + 1, name, creation_date))
+            path_array.append((count, name, creation_date))
             paths.append(path)
+            count += 1
     if not path_array:
         print(f"No {'files' if is_file else 'directories'} found in {path}")
         return None
