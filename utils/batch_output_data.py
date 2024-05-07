@@ -61,9 +61,21 @@ class BatchOutputData:
         initial_network = BSSData.from_files(path.joinpath("initial_network"))
         return BatchOutputData(name, path, initial_network, run_number)
 
-    def iterjobs(self) -> Generator[Job, None, None]:
-        for job_path in self.jobs_path.iterdir():
-            yield Job.from_files(job_path)
+    def iterjobs(self, track_progress: bool = True) -> Generator[Job, None, None]:
+        """
+        Iterates over all jobs in the batch
+
+        Args:
+            track_progress: Whether or not to print progress updates in 10% increments
+
+        Yields:
+            The next job in the batch
+        """
+        job_paths = list(self.jobs_path.iterdir())
+        if track_progress:
+            job_paths = progress_tracker(job_paths)
+        for job_path in job_paths:
+            yield Job.from_files(job_path, self.path.joinpath("initial_network", "fixed_rings.txt"))
 
     def create_images(self, save_path: Optional[Path] = None, seed_skip: bool = False, refresh: bool = False) -> None:
         """
@@ -96,11 +108,65 @@ class BatchOutputData:
                 continue
             job.create_image(save_path.joinpath(f"{clean_name(job.name)}.svg"))
 
-    def plot_radial_distribution(self, jobs: list[Job], num_bins: int = 1000) -> None:
-        radii = np.linspace(0, np.linalg.norm(self.initial_network.dimensions[1] - self.initial_network.dimensions[0]) / 2, num_bins)
+    def get_radial_distribution(self, refresh: bool = False) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Gets the radial distribution of the batch
+
+        Args:
+            refresh: Whether or not to refresh the data from scratch
+
+        Returns:
+            The radii and densities of the batch
+        """
+        if not refresh:
+            try:
+                array = np.genfromtxt(self.path.joinpath("raidial_distribution.txt"))
+                return array[:, 0], array[:, 1]
+            except Exception as e:
+                print(f"Error reading file {self.path.joinpath('raidial_distribution.txt')}: {e}")
+                print("Computing ring size distribution from scratch")
+        radiis = []
         densities = []
-        for job in jobs:
-            _, density = job.bss_data.get_radial_distribution(num_bins)
-            densities.append(density)
-        mean_density = np.mean(densities, axis=0)
-        plt.plot(radii, mean_density)
+        for job in self.iterjobs():
+            radial_distribution_path = job.path.joinpath("radial_distribution.txt")
+            radii, density = job.bss_data.get_radial_distribution(fixed_ring_center=True, refresh=refresh, path=radial_distribution_path)
+            radiis.extend(radii)
+            densities.extend(density)
+            del job
+        radiis = np.array(radiis)
+        densities = np.array(densities)
+        np.savetxt(self.path.joinpath("raidial_distribution.txt"), np.column_stack((radiis, densities)))
+        return radiis, densities
+
+    def plot_radial_distribution(self, refresh: bool = False) -> None:
+        """
+        Plots the radial distribution of the batch (data for each job will be saved in the job's path)
+
+        Args:
+            refresh (bool): Whether or not to refresh the data from scratch
+        """
+        radiis, densities = self.get_radial_distribution(refresh)
+
+        # Group densities by radius
+        density_dict = {}
+        for radius, density in zip(radiis, densities):
+            if radius not in density_dict:
+                density_dict[radius] = []
+            density_dict[radius].append(density)
+
+        # Compute mean and standard deviation at each radius
+        mean_densities = []
+        std_dev_densities = []
+        for radius in sorted(density_dict.keys()):
+            density_values = density_dict[radius]
+            mean_densities.append(np.mean(density_values))
+            std_dev_densities.append(np.std(density_values))
+
+        mean_densities = np.array(mean_densities)
+        std_dev_densities = np.array(std_dev_densities)
+
+        plt.plot(radiis, densities)
+        plt.fill_between(radiis, mean_densities - std_dev_densities, mean_densities + std_dev_densities, alpha=0.2)  # for shaded region
+        plt.xlabel("Radius (Bohr Radii)")
+        plt.ylabel("Base Node Density")
+        plt.title("Radial distribution")
