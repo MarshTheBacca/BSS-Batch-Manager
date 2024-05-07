@@ -23,7 +23,14 @@ class Job:
     changing_vars: set[Var]
 
     @staticmethod
-    def from_files(path: Path) -> Job:
+    def from_files(path: Path, fixed_rings_path: Optional[Path] = None) -> Job:
+        """
+        Creates a Job object
+
+        Args:
+            path: Path to the job folder
+            fixed_rings_path: Optional path to the fixed_rings.txt file, usually from the initial network
+        """
         bss_input_data = BSSInputData.from_file(path.joinpath("bss_parameters.txt"))
         changing_vars_names = ["_".join(splice.split("_")[:-1]) for splice in path.name.split("__")]
         changing_vars = {var for var in bss_input_data.variables if var.short_name in changing_vars_names or var.name in changing_vars_names}
@@ -31,7 +38,7 @@ class Job:
         for var in changing_vars:
             name += f"{var.name}_{var.value}__"
         name = name[:-2]
-        bss_data = BSSData.from_files(path.joinpath("output_files"))
+        bss_data = BSSData.from_files(path.joinpath("output_files"), fixed_rings_path)
         bss_output_data = BSSOutputData(path.joinpath("output_files", "bss_stats.csv"))
         return Job(name, path, bss_data, bss_input_data, bss_output_data, changing_vars)
 
