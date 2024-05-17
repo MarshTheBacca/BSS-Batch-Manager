@@ -1,12 +1,16 @@
+import shutil
 import stat
 from pathlib import Path
+from typing import Optional
 
 import paramiko
-import shutil
 
 
 class LogInException(Exception):
     pass
+
+
+MIN_FREE_SPACE = 10 * 1024 * 1024 * 1024  # 10 GB
 
 
 def command_print(ssh: paramiko.SSHClient, command: list) -> None:
@@ -134,14 +138,15 @@ def land_directory(sftp: paramiko.SFTPClient, remote_path: Path) -> None:
             raise IOError(f"Could not make remote directory {remote_path}, check permissions")
 
 
-def receive_batches(username: str, hostname: str, output_path: Path) -> None:
+def receive_batches(username: str, hostname: str, output_path: Path, secondary_output_path: Optional[Path] = None) -> None:
     """
     Receives batches from the host, deleting batch files and empty batch folders along the way
 
     Args:
         username (str): username to log in to host
         hostname (str): the server's hostname
-        output_path (Path): the path to download and exrtact batches to
+        output_path (Path): the path to download and extract batches to
+        secondary_output_path (Path, optional): the secondary path to download and extract batches to
     """
     ssh = ssh_login_silent(username, hostname)
     sftp = ssh.open_sftp()
@@ -169,7 +174,14 @@ def receive_batches(username: str, hostname: str, output_path: Path) -> None:
                 return
             batch_name = '_'.join(sub_file.split('_')[:-4])
             zip_path = full_path.joinpath(f"{batch_name}_run_{run_number}.zip")
-            save_path = output_path.joinpath(batch_name, f"{batch_name}_run_{run_number}.zip")
+
+            # Check available disk space
+            total, used, free = shutil.disk_usage(output_path)
+            if free < MIN_FREE_SPACE and secondary_output_path is not None:
+                print("Switching to secondary output path due to low disk space")
+                save_path = secondary_output_path.joinpath(batch_name, f"{batch_name}_run_{run_number}.zip")
+            else:
+                save_path = output_path.joinpath(batch_name, f"{batch_name}_run_{run_number}.zip")
             save_path.parent.mkdir(parents=True, exist_ok=True)
             print("Downloading batch...")
             sftp.get(zip_path.as_posix(), save_path.as_posix())
