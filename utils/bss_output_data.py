@@ -13,36 +13,40 @@ class BSSOutputData:
     file_path: Path
 
     def __post_init__(self) -> None:
-        self.steps: list[int] = []
-        self.temperatures: list[float] = []
-        self.energies: list[float] = []
-        self.entropies: list[float] = []
-        self.pearson_coeffs: list[float] = []
-        self.aboav_weaires: list[float] = []
-        self.ring_sizes: list[dict] = []
-        with open(self.file_path, "r") as file:
-            for _ in range(4):
-                file.readline()
-            lines = file.readlines()
-        for line in lines[:-3]:
-            line = line.split(",")
-            self.steps.append(int(line[0]))
-            self.temperatures.append(float(line[1]))
-            self.energies.append(float(line[2]))
-            self.entropies.append(float(line[3]))
-            self.pearson_coeffs.append(float(line[4]))
-            self.aboav_weaires.append(float(line[5]))
-            self.ring_sizes.append({int(ring_size): float(proportion) for ring_size, proportion in (pair.split(":") for pair in line[6].split(";"))})
-        misc_stats = lines[-1].split(",")
-        self.num_steps: int = int(misc_stats[0])
-        self.num_accepted: int = int(misc_stats[1])
-        self.num_failed_angle_checks: int = int(misc_stats[2])
-        self.num_failed_bond_length_checks: int = int(misc_stats[3])
-        self.num_failed_energy_checks: int = int(misc_stats[4])
-        self.acceptance_rate: float = float(misc_stats[5])
-        self.total_run_time: float = float(misc_stats[6])
-        self.average_time_per_step: float = float(misc_stats[7])
-        self.consistent: bool = TRUE_FALSE_MAP[misc_stats[8].rstrip().lower()]
+        try:
+            self.steps: list[int] = []
+            self.temperatures: list[float] = []
+            self.energies: list[float] = []
+            self.entropies: list[float] = []
+            self.pearson_coeffs: list[float] = []
+            self.aboav_weaires: list[float] = []
+            self.ring_sizes: list[dict] = []
+            with open(self.file_path, "r") as file:
+                for _ in range(4):
+                    file.readline()
+                lines = file.readlines()
+            for line in lines[:-3]:
+                line = line.split(",")
+                self.steps.append(int(line[0]))
+                self.temperatures.append(float(line[1]))
+                self.energies.append(float(line[2]))
+                self.entropies.append(float(line[3]))
+                self.pearson_coeffs.append(float(line[4]))
+                self.aboav_weaires.append(float(line[5]))
+                self.ring_sizes.append({int(ring_size): float(proportion) for ring_size, proportion in (pair.split(":") for pair in line[6].split(";"))})
+            misc_stats = lines[-1].split(",")
+            self.num_steps: int = int(misc_stats[0])
+            self.num_accepted: int = int(misc_stats[1])
+            self.num_failed_angle_checks: int = int(misc_stats[2])
+            self.num_failed_bond_length_checks: int = int(misc_stats[3])
+            self.num_failed_energy_checks: int = int(misc_stats[4])
+            self.acceptance_rate: float = float(misc_stats[5])
+            self.total_run_time: float = float(misc_stats[6])
+            self.average_time_per_step: float = float(misc_stats[7])
+            self.consistent: bool = TRUE_FALSE_MAP[misc_stats[8].rstrip().lower()]
+        except Exception as e:
+            print(f"Error reading BSS output data from {self.file_path}: {e}")
+            raise
 
     def summarise(self) -> None:
         print("Number of steps:", self.num_steps)
@@ -141,3 +145,4 @@ class BSSOutputData:
     #     plt.xlabel("Step")
     #     plt.ylabel("Total Ring Area (Bohr Radii^2)")
     #     plt.show()
+
