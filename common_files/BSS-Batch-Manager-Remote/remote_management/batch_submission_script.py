@@ -251,7 +251,12 @@ def submit_batch(username: str, run_path: Path) -> None:
         if counter % progress_check == 0:
             logging.info(f"Submitted {round(counter / num_jobs * 100)}%")
             elapsed_time = timedelta(seconds=int(time.time() - start_time))
-            logging.info(f"Time elapsed: {datetime.strptime(str(elapsed_time), '%H:%M:%S').strftime('%H:%M:%S')}")
+            total_seconds = int(elapsed_time.total_seconds())
+            days, remainder = divmod(total_seconds, 86400)
+            hours, remainder = divmod(remainder, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            time_str = f"{days}:{hours:02d}:{minutes:02d}:{seconds:02d}"
+            logging.info(f"Time elapsed: {time_str}")
         counter += 1
 
     start_time = time.time()
