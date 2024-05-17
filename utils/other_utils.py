@@ -1,14 +1,16 @@
+import itertools
 import multiprocessing
 import subprocess
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Type
+from typing import Any, Optional, Type
+
 from tabulate import tabulate
 
-from .custom_types import (BondSelectionProcess, BSSType, StructureType)
-from .var import Var
+from .custom_types import BondSelectionProcess, BSSType, StructureType
 from .validation_utils import get_valid_int, get_valid_str
+from .var import Var
 
 
 def find_char_indexes(string: str, target_char: str, invert: bool = False) -> list[int]:
@@ -118,7 +120,7 @@ def generate_job_name(changing_vars: list[Var], array: list[BSSType]) -> str:
     return clean_name(job_name[:-2])
 
 
-def select_path(path: Path, prompt: str, is_file: bool) -> Path | None:
+def select_path(path: Path, prompt: str, is_file: bool, secondary_path: Optional[Path] = None) -> Path | None:
     """
     Select a path to load from the given directory
     Args:
@@ -129,7 +131,13 @@ def select_path(path: Path, prompt: str, is_file: bool) -> Path | None:
     """
     path_array = []
     paths = []
-    sorted_paths = sorted(Path.iterdir(path), key=lambda p: p.stat().st_ctime, reverse=True)
+    primary_paths = Path.iterdir(path)
+    if secondary_path is not None:
+        secondary_paths = Path.iterdir(secondary_path)
+    else:
+        secondary_paths = []
+    all_paths = itertools.chain(primary_paths, secondary_paths)
+    sorted_paths = sorted(all_paths, key=lambda p: p.stat().st_ctime, reverse=True)
     count = 1
     for path in sorted_paths:
         if (path.is_file() if is_file else path.is_dir()):
@@ -150,16 +158,16 @@ def select_path(path: Path, prompt: str, is_file: bool) -> Path | None:
     return paths[option - 1]
 
 
-def select_network(networks_path: Path, prompt: str) -> Path | None:
-    return select_path(networks_path, prompt, is_file=False)
+def select_network(networks_path: Path, prompt: str, secondary_path: Optional[Path] = None) -> Path | None:
+    return select_path(networks_path, prompt, False, secondary_path)
 
 
 def select_potential(potentials_path: Path, prompt: str) -> Path | None:
-    return select_path(potentials_path, prompt, is_file=True)
+    return select_path(potentials_path, prompt, True)
 
 
 def select_finished_batch(output_files_path: Path, prompt: str) -> Path | None:
-    return select_path(output_files_path, prompt, is_file=False)
+    return select_path(output_files_path, prompt, False)
 
 
 def get_batch_name(batches_path: Path) -> str | None:
