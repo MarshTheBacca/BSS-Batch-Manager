@@ -5,10 +5,11 @@ from itertools import product
 from pathlib import Path
 
 from matplotlib import pyplot as plt
+from typing import Optional
 
 from utils import (BatchData, BatchOutputData, BSSInputData, BSSType,
                    generate_job_name, get_batch_name, get_options,
-                   get_valid_int, select_network, select_potential, receive_batches)
+                   get_valid_int, select_network, select_potential, receive_batches, plot_energy_vs_pore_size)
 
 NUMBER_ORDERS = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth",
                  9: "ninth", 10: "tenth"}
@@ -83,16 +84,44 @@ def create_batch(template_data: BSSInputData, batches_path: Path, networks_path:
     create_bss_input_parameters(template_data, vary_arrays, selected_var_indexes, batches_path, network_path, potential_path)
 
 
-def analyse_batch(output_files_path: Path) -> None:
-    network = select_network(output_files_path, "Select a network to analyse")
+def analyse_network(output_files_path: Path, secondary_path: Optional[Path] = None) -> None:
+    network = select_network(output_files_path, "Select a network to analyse", secondary_path)
     if network is None:
         return
     runs = sorted([run for run in network.iterdir() if run.is_dir()], key=lambda x: int(x.name[4:]))
     print(f"Reading from {runs[-1].name} ...")
     batch_output_data = BatchOutputData.from_files(runs[-1])
-    batch_output_data.plot_radial_distribution(refresh=True)
+    # batch_output_data.plot_ring_size_distribution(refresh=False)
+    batch_output_data.plot_energy_vs_temperatures()
     plt.show()
     plt.clf()
+
+
+def get_pore_size(batch: Path) -> int | None:
+    try:
+        return int(batch.name.split("_")[3])
+    except ValueError:
+        return None
+
+
+def get_network_tuple(paths: set[Path]) -> list[tuple[Path, int]]:
+    network_tuple = []
+    for path in paths:
+        for batch in path.iterdir():
+            if batch.is_dir() and (pore_size := get_pore_size(batch)) is not None:
+                for job in batch.joinpath("run_1", "jobs").iterdir():
+                    network_tuple.append((job, pore_size))
+    return network_tuple
+
+
+def analyse_batch(paths: set[Path]) -> None:
+    option = get_valid_int("Choose from one of the following presets\n1) Energy Vs Pore size\n2) Exit\n", 1, 2)
+    if option == 1:
+        network_tuple = get_network_tuple(paths)
+        plot_energy_vs_pore_size(network_tuple)
+
+    elif option == 2:
+        return
 
 
 def main() -> None:
@@ -110,6 +139,24 @@ def main() -> None:
         print("Could not load username and hostname config options (did you delete config lines?)")
         return
     print(f"Loaded username: {username} for connecting to: {hostname}")
+    try:
+        secondary_output_path = options["secondary_output_path"]
+        if secondary_output_path is not None:
+            secondary_output_path = Path(secondary_output_path)
+            secondary_output_path.mkdir(exist_ok=True)
+            # check if user has write permissions to this directory:
+            secondary_output_path.joinpath("test_file").touch()
+            secondary_output_path.joinpath("test_file").unlink()
+            print("Secondary output path set to: ", secondary_output_path)
+    except KeyError:
+        print("Could not load secondary output path config option (did you delete config lines?)")
+        secondary_output_path = None
+    except PermissionError:
+        print(f"User does not have write permissions to {secondary_output_path}")
+        secondary_output_path = None
+    except FileNotFoundError:
+        print(f"Secondary output path does not exist: {secondary_output_path}")
+        secondary_output_path = None
     try:
         common_files_path = CWD.joinpath("common_files")
         common_files_path.joinpath("batch_log.csv").touch(exist_ok=True)
@@ -137,9 +184,9 @@ def main() -> None:
             elif option == 4:
                 batch_data.submit_batch(output_path, CWD.joinpath("utils", "batch_submit.py"), username, hostname)
             elif option == 5:
-                receive_batches(username, hostname, output_path)
+                receive_batches(username, hostname, output_path, secondary_output_path)
             elif option == 6:
-                analyse_batch(output_path)
+                analyse_batch({output_path, secondary_output_path})
             elif option == 7:
                 break
     except FileNotFoundError as e:
