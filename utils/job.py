@@ -22,6 +22,10 @@ class Job:
     bss_output_data: BSSOutputData
     changing_vars: set[Var]
 
+    def __post_init__(self) -> None:
+        self.energy = self.bss_output_data.energies[-1]
+        self.changing_vars_dict = {var.name: var.value for var in self.changing_vars}
+
     @staticmethod
     def from_files(path: Path, fixed_rings_path: Optional[Path] = None) -> Job:
         """
