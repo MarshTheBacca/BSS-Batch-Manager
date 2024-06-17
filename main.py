@@ -1,15 +1,16 @@
+import itertools
 import shutil
 import traceback
 from copy import deepcopy
-from itertools import product
 from pathlib import Path
+from typing import Optional, Generator
 
 from matplotlib import pyplot as plt
-from typing import Optional
 
 from utils import (BatchData, BatchOutputData, BSSInputData, BSSType,
                    generate_job_name, get_batch_name, get_options,
-                   get_valid_int, select_network, select_potential, receive_batches, plot_energy_vs_pore_size)
+                   get_valid_int, receive_batches,
+                   select_network, select_potential, ResultsData)
 
 NUMBER_ORDERS = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth",
                  9: "ninth", 10: "tenth"}
@@ -23,7 +24,7 @@ def create_bss_input_parameters(template_data: BSSInputData,
                                 batches_path: Path,
                                 network_path: Path,
                                 potential_path: Path) -> None:
-    meshgrid = list(product(*vary_arrays))
+    meshgrid = list(itertools.product(*vary_arrays))
     print(f"You selected network: {network_path.name}")
     batch_name = get_batch_name(batches_path)
     if batch_name is None:
@@ -114,13 +115,21 @@ def get_network_tuple(paths: set[Path]) -> list[tuple[Path, int]]:
     return network_tuple
 
 
+def get_job_paths(output_paths: set[Path]) -> Generator[Path, None, None]:
+    for output_path in output_paths:
+        for batch_path in output_path.iterdir():
+            jobs_path = batch_path.joinpath("run_1", "jobs")
+            if jobs_path.exists() and jobs_path.is_dir():
+                yield from jobs_path.iterdir()
+
+
 def analyse_batch(paths: set[Path]) -> None:
-    option = get_valid_int("Choose from one of the following presets\n1) Energy Vs Pore size\n2) Exit\n", 1, 2)
+    option = get_valid_int("Choose from one of the following presets\n1) Energy Vs Pore size\n2) Generate master data\n3) Exit\n", 1, 3)
     if option == 1:
         network_tuple = get_network_tuple(paths)
-        plot_energy_vs_pore_size(network_tuple)
-
     elif option == 2:
+        results_data = ResultsData.gen_from_paths(list(get_job_paths(paths)), Path(__file__).parent.joinpath("thesis_results", "master_data.csv"))
+    elif option == 3:
         return
 
 
