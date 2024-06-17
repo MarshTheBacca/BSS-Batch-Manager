@@ -1,16 +1,21 @@
+import datetime
 import itertools
 import multiprocessing
 import subprocess
-from datetime import datetime
+import time
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Type
+from typing import Any, Generator, Iterable, Optional, Type, TypeVar
+from scipy.optimize import fsolve
 
+import numpy as np
 from tabulate import tabulate
 
 from .custom_types import BondSelectionProcess, BSSType, StructureType
 from .validation_utils import get_valid_int, get_valid_str
 from .var import Var
+
+T = TypeVar('T')
 
 
 def find_char_indexes(string: str, target_char: str, invert: bool = False) -> list[int]:
@@ -71,6 +76,9 @@ def string_to_value(value: str, expected_type: Type[Any]) -> BSSType:
         expected_type: The expected type of the value
     Returns:
         The converted value
+    Raises:
+        TypeError if an unknown expected type is given
+        ValueError if the string fails to be converted to the expected type
     """
     if expected_type == int:
         return int(value)
@@ -142,7 +150,7 @@ def select_path(path: Path, prompt: str, is_file: bool, secondary_path: Optional
     for path in sorted_paths:
         if (path.is_file() if is_file else path.is_dir()):
             name = path.name
-            creation_date = datetime.fromtimestamp(path.stat().st_ctime).strftime('%d/%m/%Y %H:%M:%S')
+            creation_date = datetime.datetime.fromtimestamp(path.stat().st_ctime).strftime('%d/%m/%Y %H:%M:%S')
             path_array.append((count, name, creation_date))
             paths.append(path)
             count += 1
@@ -197,3 +205,87 @@ def get_batch_name(batches_path: Path) -> str | None:
             return batch_name
         except FileExistsError:
             print("A batch with that name already exists, please try again")
+
+
+def progress_tracker(iterable: Iterable[T], total: int) -> Generator[T, None, None]:
+    """
+    Writes progress to the console as the iterable is processed.
+
+    Args:
+        iterable: The iterable to process.
+        total: The total number of items in the iterable.
+
+    Returns:
+        The processed iterable.
+    """
+    start = time.time()
+    for i, item in enumerate(iterable, start=1):
+        yield item
+        if total < 10 or i % (total // 10) == 0 or i == total:
+            elapsed_time = time.time() - start
+            print(f'Processed {i}/{total} items ({i / total * 100:.0f}%). Elapsed time: {datetime.timedelta(seconds=elapsed_time)}')
+
+
+def get_polygon_area_estimate(num_sides: int, side_length: float) -> float:
+    """
+    Estimates the area of a polygon with the given number of sides and side length using the formula for the area of a regular polygon
+
+    Args:
+        num_sides: The number of sides of the polygon
+        side_length: The length of each side of the polygon
+    Returns:
+        The estimated area of the polygon
+    """
+    return (num_sides * side_length ** 2) / (4 * np.tan(np.pi / num_sides))
+
+
+def clockwise_order_coords(coords: list[np.ndarray]) -> list[np.ndarray]:
+    """
+    Orders the coordinates of a polygon in clockwise order around the center of the polygon
+
+    Args:
+        coords: The coordinates of the polygon
+    Returns:
+        The coordinates of the polygon in clockwise order
+    """
+    coords = np.array(coords)
+    num_coords = len(coords)
+    if num_coords < 3:
+        return coords
+    center = np.mean(coords, axis=0)
+    angles = np.arctan2(coords[:, 1] - center[1], coords[:, 0] - center[0])
+    return coords[np.argsort(angles)]
+
+
+def get_polygon_area(coords: list[np.ndarray]) -> float:
+    """
+    Calculates the area of a polygon with the given coordinates using the Shoelace formula
+    also known as Gauss's area formula or the surveyor's formula
+
+    Args:
+        coords: The coordinates of the polygon
+    Returns:
+        The area of the polygon
+    """
+    num_coords = len(coords)
+    if num_coords < 3:
+        return 0
+    coords = clockwise_order_coords(coords)
+    area = 0
+    for i in range(num_coords):
+        j = (i + 1) % num_coords
+        area += coords[i][0] * coords[j][1]
+        area -= coords[j][0] * coords[i][1]
+    return abs(area) / 2
+
+
+def dict_to_string(dictionary: dict, deliminator: str = ";", pair_deliminator: str = ":") -> str:
+    """
+    Converts a dictionary to a string with deliminators, be sure not to have strings with the deliminators included in themselves!
+
+    Args:
+        dictionary (dict): the dictionary to convert
+        deliminator (str): the deliminator between key, value pairs
+        pair_deliminator (str): the deliminator between keys and values
+    """
+    return deliminator.join(f"{key}{pair_deliminator}{value}" for key, value in dictionary.items())
