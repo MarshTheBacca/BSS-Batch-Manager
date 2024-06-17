@@ -111,9 +111,9 @@ class BSSOutputData:
         ring_labels = ['Ring Size ' + str(ring_size) for ring_size, ring in zip(all_ring_sizes, ring_sizes_transposed) if sum(ring) > 0]
 
         plt.stackplot(self.steps, *ring_sizes_filtered, labels=ring_labels)
-        plt.title('Proportion of Ring Sizes per Step')
-        plt.xlabel('Step')
-        plt.ylabel('Proportion')
+        plt.title('Proportion of Ring Sizes per Step', fontsize=20)
+        plt.xlabel('Step', fontsize=20)
+        plt.ylabel('Proportion', fontsize=20)
 
         # Set the limits of the x-axis and y-axis
         plt.gca().set_xlim([0, max(self.steps)])
@@ -122,7 +122,6 @@ class BSSOutputData:
         # Place the legend outside of the plot
         plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
         plt.tight_layout()
-        plt.show()
 
     # def plot_ring_areas(self) -> None:
     #     ring_areas = [area for areas in self.ring_areas for area in areas]
@@ -145,4 +144,3 @@ class BSSOutputData:
     #     plt.xlabel("Step")
     #     plt.ylabel("Total Ring Area (Bohr Radii^2)")
     #     plt.show()
-
