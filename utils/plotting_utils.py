@@ -1,91 +1,257 @@
-from collections import deque
 from pathlib import Path
-from typing import Generator, Optional, Iterable, Callable, TypeVar
-import time
-from functools import wraps
-from matplotlib import pyplot as plt
+from typing import Optional
 
-RELATIVE_ENERGY = -29400 / 392  # Energy of a perfect network (E_h / node)
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import cm
+from matplotlib.axes import Axes
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import (BoundaryNorm, Colormap, ListedColormap,
+                               Normalize, to_rgba)
+from matplotlib.patches import FancyArrow
+from matplotlib.ticker import NullLocator
 
-T = TypeVar('T')
 
-
-def progress_tracker(iterable: Iterable[T], total: int) -> Generator[T, None, None]:
+def get_ring_colours_1() -> list[tuple[float, float, float, float]]:
     """
-    Writes progress to the console as the iterable is processed.
-
-    Args:
-        iterable: The iterable to process.
-        total: The total number of items in the iterable.
+    Gets a colour palette for ring sizes 
 
     Returns:
-        The processed iterable.
+        A list of colours for the rings, where each index is equivalent to a ring size
     """
-    start = time.time()
-    for i, item in enumerate(iterable, start=1):
-        yield item
-        if total < 10 or i % (total // 10) == 0 or i == total:
-            elapsed_time = time.time() - start
-            print(f'Processed {i}/{total} items ({i / total * 100:.0f}%). Elapsed time: {elapsed_time:.2f} seconds.')
+    colour_maps = ["YlGnBu", "YlGnBu", "GnBu", "Greys", "YlOrRd", "YlOrRd", "RdPu", "RdPu"]
+    colours = [0.8, 0.7, 0.6, 0.3, 0.3, 0.5, 0.4, 0.7]
+    ring_colours = [to_rgba("white")] * 3
+    ring_colours.extend(cm.get_cmap(cmap)(colour) for cmap, colour in zip(colour_maps, colours))
+    ring_colours.extend([to_rgba("black")] * 30)
+    return ring_colours
 
 
-def get_last_energy(job_path: Path) -> float | None:
-    try:
-        with job_path.joinpath("output_files", "bss_stats.csv").open() as file:
-            last_lines = deque(file, maxlen=4)
-        energy = float(last_lines[0].split(",")[2])
-        return energy
-    except Exception as e:
-        print(f"Error reading BSS output data from {job_path}: {e}")
-        return None
+def get_ring_colours_2(average_ring_size: int = 6) -> list[tuple[float, float, float, float]]:
+    """
+    Gets a colour palette for ring sizes 
+
+    Returns:
+        A list of colours for the rings, where each index is equivalent to a ring size
+        Average ring size is coloured grey
+        Rings over the average size are coloured red
+        Rings under the average size are coloured blue
+    """
+    map_lower = ListedColormap(cm.get_cmap("Blues_r")(np.arange(20, 100)))
+    map_upper = ListedColormap(cm.get_cmap("Reds")(np.arange(50, 100)))
+    norm_lower = Normalize(vmin=average_ring_size - 3, vmax=average_ring_size)
+    norm_upper = Normalize(vmin=average_ring_size, vmax=average_ring_size + 6)
+    colour_mean = cm.get_cmap("Greys")(50)
+
+    return [to_rgba("white") if i < 3 else
+            colour_mean if np.abs(i - average_ring_size) < 1e-6 else
+            map_lower(norm_lower(i)) if i < average_ring_size else
+            map_upper(norm_upper(i)) for i in range(340)]
 
 
-def get_num_nodes(job_path: Path) -> int | None:
-    with job_path.parent.parent.joinpath("initial_network", "base_network_info.txt").open() as file:
-        for line in file:
-            if "Number of nodes" in line:
-                return int(line.split(":")[1])
-    return None
+def get_ring_colours_3() -> list[tuple[float, float, float, float]]:
+    """
+    Gets a colour palette for ring sizes 
+
+    Returns:
+        A list of colours for the rings, where each index is equivalent to a ring size
+    """
+    colormaps = ["GnBu", "Greens", "Blues", "Greys", "Reds", "YlOrBr", "PuRd", "RdPu"]
+    color_values = [140, 100, 150, 90, 105, 100, 100, 80]
+    ring_colours = [to_rgba("white")] * 3
+    ring_colours.extend(cm.get_cmap(cmap)(value) for cmap, value in zip(colormaps, color_values))
+    ring_colours.extend([to_rgba("black")] * 30)
+    return ring_colours
 
 
-def process_jobs(job_list: list[tuple[Path, int]]) -> Generator[tuple[float, int], None, None]:
-    errored_job_file = Path(__file__).parent.parent.joinpath("errored_jobs.txt")
-    with errored_job_file.open("w") as file:  # Clear the file
-        for job_path, pore_size in job_list:
-            num_nodes = get_num_nodes(job_path)
-            energy = get_last_energy(job_path)
-            if energy is not None and num_nodes is not None:
-                yield energy / num_nodes - RELATIVE_ENERGY, pore_size
-            else:
-                file.write(str(job_path) + "\n")
+def get_ring_colours_4() -> list[tuple[float, float, float, float]]:
+    """
+    Gets a colour palette for ring sizes (best palette)
+
+    Returns:
+        A list of colours for the rings, where each index is equivalent to a ring size
+    """
+    ring_colours = [to_rgba("white")] * 2 + [to_rgba("black")]
+    ring_colours.extend(cm.get_cmap("cividis")(i) for i in np.linspace(0, 1, 8))
+    ring_colours.extend(cm.get_cmap("YlOrRd")(i) for i in np.linspace(0.4, 1, 8))
+    return ring_colours
 
 
-def get_energy_vs_pore_size(job_list: list[tuple[Path, int]], refresh: bool = False) -> tuple[list[float], list[int]]:
-    existing_data_path = Path(__file__).parent.parent.joinpath("thesis_results", "energy_vs_pore.txt")
-    if not refresh and existing_data_path.exists():
-        try:
-            with open(existing_data_path) as existing_file:
-                pore_sizes, energies = zip(*[line.split(",") for line in existing_file])
-            return list(map(float, energies)), list(map(int, pore_sizes))
-        except (ValueError, PermissionError, FileExistsError) as e:
-            print("Error reading existing data file: ", e)
-    print("Generating data from scratch")
-    job_generator = progress_tracker(process_jobs(job_list), len(job_list))
-    energies, pore_sizes = zip(*list(job_generator))
-    try:
-        with open(existing_data_path, "w") as file:
-            for energy, pore_size in zip(energies, pore_sizes):
-                file.write(f"{pore_size},{energy}\n")
-    except (IOError, PermissionError) as e:
-        print("Error writing data to file: ", e)
-    return list(energies), list(pore_sizes)
+def save_plot(save_path: Path, dimensions: tuple[int, int] = (6, 6), dpi: int = 300) -> None:
+    """
+    Saves the current plot to a file without clearing it
+
+    Args:
+        save_path: The path to save the plot to
+        dimensions: The dimensions of the plot in inches
+        dpi: The resolution of the plot
+    """
+    fig = plt.gcf()
+    fig.set_size_inches(dimensions[0], dimensions[1])
+    plt.savefig(save_path, dpi=dpi, bbox_inches='tight', pad_inches=0.1)
 
 
-def plot_energy_vs_pore_size(job_list: list[tuple[Path, int]], refresh: bool = False) -> None:
-    energies, pore_sizes = get_energy_vs_pore_size(job_list, refresh)
-    _, ax = plt.subplots()
-    ax.scatter(pore_sizes, energies)
-    ax.set_xlabel("Pore Size")
-    ax.set_ylabel("Energy per Node (Hartrees)")
-    ax.set_title("Energy vs. Pore Size")
-    plt.show()
+def arrowed_spines(ax: Axes, x_width_fraction: float = 0.02, x_height_fraction: float = 0.02,
+                   line_width: float = 0, overhang_fraction: float = 0.3,
+                   locations: tuple[str] = ("bottom right", "left up"), **arrow_kwargs) -> dict[str, FancyArrow]:
+
+    arrow_kwargs = {"overhang": overhang_fraction,
+                    "clip_on": False,
+                    "length_includes_head": True,
+                    "head_starts_at_zero": False,
+                    **arrow_kwargs}
+
+    line_width = line_width or ax.spines["left"].get_linewidth()
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+
+    hw = x_width_fraction * (ymax - ymin)
+    hl = x_height_fraction * (xmax - xmin)
+
+    fig = ax.get_figure()
+    width, height = fig.get_size_inches()
+    yhw = hw / (ymax - ymin) * (xmax - xmin) * height / width
+    yhl = hl / (xmax - xmin) * (ymax - ymin) * width / height
+
+    annotations = {location: ax.arrow(0 if side == "zero" else (xmin if side in {"left", "bottom"} else xmax),
+                                      0 if side == "zero" else (ymin if side in {"left", "bottom"} else ymax),
+                                      0 if direction in {"left", "right"} else ((xmax - xmin) + 2 * hl),
+                                      0 if direction in {"up", "down"} else (ymax - ymin),
+                                      fc="k", ec="k", lw=line_width,
+                                      head_width=(yhw, hw)[direction in {"up", "down"}],
+                                      head_length=(yhl, hl)[direction in {"up", "down"}],
+                                      **arrow_kwargs)
+                   for location in locations for side, direction in [location.split(" ")]}
+
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+    return annotations
+
+
+def format_axes(ax: Axes,
+                x_label: str, y_label: str,
+                xlo: Optional[float] = None, xhi: Optional[float] = None,
+                ylo: Optional[float] = None, yhi: Optional[float] = None,
+                x_tick_separation: Optional[float] = None, y_tick_separation: Optional[float] = None,
+                label_font_size: int = 20, ticks_font_size: int = 20) -> None:
+    """
+    Formats the axes of a plot
+
+    Args:
+        ax: The axes to format
+        x_label: The label for the x-axis
+        y_label: The label for the y-axis
+        xlo: The lower bound of the x-axis
+        xhi: The upper bound of the x-axis
+        ylo: The lower bound of the y-axis
+        yhi: The upper bound of the y-axis
+        x_tick_separation: The separation between x-axis ticks
+        y_tick_separation: The separation between y-axis ticks
+        label_font_size: The font size of the axis labels
+        ticks_font_size: The font size of the axis ticks
+    """
+
+    ax.set_xlabel(x_label, fontsize=label_font_size)
+    ax.set_ylabel(y_label, fontsize=label_font_size)
+    xlo = ax.get_xlim()[0] if xlo is None else xlo
+    xhi = ax.get_xlim()[1] if xhi is None else xhi
+    ylo = ax.get_ylim()[0] if ylo is None else ylo
+    yhi = ax.get_ylim()[1] if yhi is None else yhi
+    ax.set_xlim(xlo, xhi)
+    ax.set_ylim(ylo, yhi)
+    if x_tick_separation is not None:
+        ax.set_xticks(np.arange(xlo, xhi + 1, x_tick_separation))
+    if y_tick_separation is not None:
+        ax.set_yticks(np.arange(ylo, yhi + 1, y_tick_separation))
+    ax.tick_params(axis='both', which='major', labelsize=ticks_font_size)
+
+
+def remove_axes(ax: Axes, spines: list[str] = ["top", "right"]) -> None:
+    """
+    Removes the specified spines from an axes
+
+    Args:
+        ax: The axes to remove the spines from
+        spines: The spines to remove
+    """
+    for spine in spines:
+        ax.spines[spine].set_visible(False)
+
+
+def add_colourbar(ax: Axes, cmap: Colormap, ticks: list, label: str, orientation: str = "vertical") -> None:
+    """
+    Adds a colourbar to axes
+
+    Args:
+        ax: The axes to add the colourbar to
+        cmap: The colour map to use
+        ticks: The ticks to use on the colourbar
+        label: The label for the colourbar
+        orientation: The orientation of the colourbar
+    """
+    norm = plt.Normalize(vmin=min(ticks), vmax=max(ticks))
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, cax=ax, orientation=orientation)
+    cbar.set_ticks(sorted(set(ticks)))
+    ax.set_xlabel(label, fontsize=20)
+    cbar.ax.tick_params(labelsize=20)
+
+
+def add_colourbar_2(ax: Axes, cmap: Colormap, label: str, min_label: float, max_label: float, orientation: str = "vertical") -> None:
+    """
+    Adds a colourbar to axes designed for ring sizes. Labels are centered about each colour
+
+    Args:
+        ax: The axes to add the colourbar to
+        cmap: The colour map to use
+        label: The label for the colourbar
+        min_label: The minimum label for the colourbar
+        max_label: The maximum label for the colourbar
+        orientation: The orientation of the colourbar
+    """
+    num_colors = len(cmap.colors)
+    boundaries = np.linspace(min_label - 0.5, max_label + 0.5, num_colors + 1)
+
+    norm = BoundaryNorm(boundaries=boundaries, ncolors=cmap.N)
+    sm = ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+
+    # Create the colorbar
+    cbar = plt.colorbar(sm, cax=ax, orientation=orientation, ticks=np.linspace(min_label, max_label, num_colors))
+
+    # Change the label of the maximum tick to "max_tick+"
+    max_tick = int(cbar.get_ticks()[-1])
+    tick_labels = [str(int(tick)) if tick < max_tick else f'{max_tick}+' for tick in cbar.get_ticks()]
+    cbar.set_ticklabels(tick_labels)
+
+    # Remove minor ticks
+    cbar.ax.yaxis.set_minor_locator(NullLocator())
+
+    ax.set_xlabel(label, fontsize=20)
+    cbar.ax.tick_params(labelsize=20)
+
+
+def add_colourbar_3(ax: Axes, cmap: Colormap, ticks: list, label: str, orientation: str = "vertical") -> None:
+    """
+    Adds a colourbar to axes
+
+    Args:
+        ax: The axes to add the colourbar to
+        cmap: The colour map to use
+        ticks: The ticks to use on the colourbar
+        label: The label for the colourbar
+        orientation: The orientation of the colourbar
+    """
+    # Adjust the boundaries to be halfway between the ring sizes
+    boundaries = [(ticks[i] + ticks[i + 1]) / 2 for i in range(len(ticks) - 1)]
+    # Add the first and last boundaries
+    boundaries = [ticks[0] - 0.5] + boundaries + [ticks[-1] + 0.5]
+
+    # Create a boundary norm with the adjusted boundaries
+    norm = BoundaryNorm(boundaries=boundaries, ncolors=cmap.N)
+    sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, cax=ax, orientation=orientation, ticks=ticks)
+    ax.set_xlabel(label, fontsize=20)
+    cbar.ax.tick_params(labelsize=20)
