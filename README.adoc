@@ -1,6 +1,8 @@
 = BSS-Batch-Manager
 This repository is designed to manage batches for https://github.com/MarshTheBacca/Bond-Switch-Simulator.git[Bond Switch Simulator]
 
+image::sample-image.png[Sample image]
+
 == Setup
 
 The project has been setup using https://docs.astral.sh/uv/[uv]
