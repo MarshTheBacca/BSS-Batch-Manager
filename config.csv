@@ -1,5 +1,5 @@
 Option,Default,Value
-username,os.get_login,some5026
-hostname,None,coulson.chem.ox.ac.uk
+username,os.get_login,username
+hostname,None,hostname
 secondary_output_path,None,
 
