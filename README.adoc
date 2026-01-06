@@ -8,6 +8,7 @@ image::sample-image.png[Sample image]
 The project has been setup using https://docs.astral.sh/uv/[uv]
 
 You can also define the following config options in link:config.csv[config.csv]
+
 * _username_ - The username used to SSH into the host when submitting batches (defaults to your current system username)
 * _hostname_ - The server address the program submits batches to __(required)__
 
@@ -52,6 +53,7 @@ The program will prompt the user to choose a variable to edit in the link:common
 The program will prompt the user to choose a batch to submit, while also displaying information such as the number of jobs and date submitted (sorted by latest submission first)
 
 Upon confirmation of submission, a daemon process is initiated which does the following:
+
 * Checks to see if you have the relevent files in your home directory on the host, if not, copies over link:common_files/BSS-Batch-Manager-Remote[your local copy]
 * Sends over the batch zip and executes the link:common_files/BSS-Batch-Manager-Remote/remote_management/batch_submission_script.py[remote python script] on the host
 * Executes link:common_files/BSS-Batch-Manager-Remote/remote_management/check_file_exists.sh[check_file_exists.sh] on the host every 5 seconds until the output batch zip has been detected
@@ -60,6 +62,7 @@ Upon confirmation of submission, a daemon process is initiated which does the fo
 The log of this script is placed in /utils/batch_submit.log
 
 The remote python script does the following:
+
 * Unzips the batch
 * Copies in all relevant files in the correct directories, ie, the initial network, potential files and bss_parameters.txt
 * Creates a unique job script for each job
@@ -76,6 +79,7 @@ Make sure you've configued your _username_ and _hostname_ in link:config.csv[con
 Make sure you have an SSH key for the host and you can access it (test with commands like `ping [hostname]`)
 
 If you're successfully transferring over batches, but they aren't executing properly, you may need to do the following:
+
 * Re-compile the link:common_files/BSS-Batch-Manager/bond_switch_simulator.exe[executable] on your host
 * Replace your existing local copy
 * Delete the BSS-Batch-Manager folder in your host's home directory
