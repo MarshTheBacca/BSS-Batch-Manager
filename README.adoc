@@ -13,6 +13,12 @@ __You must have an SSH key__ for the host added to your SSH agent
 
 __You must also be able to access the host__ either via local network or via a VPN
 
+[source, bash]
+----
+git clone git@github.com:MarshTheBacca/BSS-Batch-Manager.git --recurse-submodules
+uv run main.py
+----
+
 == Interface
 
 The program uses an integer-based menu system. Your inital options are:
