@@ -59,7 +59,7 @@ class BatchData:
         array = [batch.convert_to_array(t_zone) for batch in batches]
         # Add numbers
         array = [[i] + list(row) for i, row in enumerate(array, start=1)]
-        tz_name = datetime.now(t_zone).strftime('%Z')
+        tz_name = datetime.now(t_zone).strftime("%Z")
         print(tabulate(array, headers=["#", "Batch Name", "Number of Jobs", "Number of Runs", f"Last Ran ({tz_name})"], tablefmt="fancy_grid"))
 
     def add_batch(self, batch: Batch) -> None:
@@ -108,7 +108,7 @@ class BatchData:
 
     def log_batch(self, batch: Batch) -> None:
         with open(self.log_path, "a") as log_file:
-            log_file.write(f"{batch.get_last_ran.strftime("%Y %a %d %b %H:%M:%S %Z")},{batch.name}\n")
+            log_file.write(f"{batch.get_last_ran.strftime('%Y %a %d %b %H:%M:%S %Z')},{batch.name}\n")
 
     def __repr__(self) -> str:
         return_string = "BatchData object with the following batches:\nCurrent Batches:\n"

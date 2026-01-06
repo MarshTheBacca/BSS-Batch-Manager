@@ -3,38 +3,32 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Generator, Optional
+from typing import TYPE_CHECKING, Any
 
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib import gridspec
-from matplotlib import pyplot as plt
+from matplotlib import cm, gridspec
 from matplotlib.colors import Normalize
 
 from .custom_types import RELATIVE_ENERGY, RELATIVE_ENTROPY, RELATIVE_PEARSONS
 from .other_utils import progress_tracker
-from .plotting_utils import (add_colourbar, arrowed_spines, format_axes,
-                             remove_axes)
+from .plotting_utils import add_colourbar, arrowed_spines, format_axes, remove_axes
 from .result_entry import ResultEntry
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
 
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["font.serif"] = ["Latin Modern Roman"]
 
 
 def calculate_average(data):
-    return {thermal_temp: {anneal_temp: {pore_size: np.mean(energies)
-                                         for pore_size, energies in pore_sizes.items()}
-                           for anneal_temp, pore_sizes in anneal_temps.items()}
-            for thermal_temp, anneal_temps in data.items()}
+    return {thermal_temp: {anneal_temp: {pore_size: np.mean(energies) for pore_size, energies in pore_sizes.items()} for anneal_temp, pore_sizes in anneal_temps.items()} for thermal_temp, anneal_temps in data.items()}
 
 
 def sort_data(avg_data):
-    return {(thermal_temp, anneal_temp): sorted([(pore_size, avg_data[thermal_temp][anneal_temp][pore_size])
-                                                 for pore_size in avg_data[thermal_temp][anneal_temp].keys()], key=lambda x: x[0])
-            for thermal_temp, anneal_temps in avg_data.items()
-            for anneal_temp in anneal_temps.keys()}
+    return {(thermal_temp, anneal_temp): sorted([(pore_size, anneal_temps[anneal_temp][pore_size]) for pore_size in anneal_temps[anneal_temp].keys()], key=lambda x: x[0]) for thermal_temp, anneal_temps in avg_data.items() for anneal_temp in anneal_temps.keys()}
 
 
 def plot_data(temps, thermal_temps, anneal_temps, cmap):
@@ -112,11 +106,11 @@ class ResultsData:
         return_data.export()
         return return_data
 
-    def export(self, path: Optional[Path] = None) -> None:
+    def export(self, path: Path | None = None) -> None:
         output_path = self.path if path is None else path
         with output_path.open("w") as output_file:
             for entry in self.entries:
-                output_file.write(f"{repr(entry)}\n")
+                output_file.write(f"{entry!r}\n")
 
     def data_by_therm_anneal_pore(self, function: Callable[[ResultEntry], Any]) -> dict:
         data = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
@@ -199,11 +193,11 @@ class ResultsData:
         for entry in self.entries:
             temp = entry.changing_vars.get("Thermalising temperature")
             if temp not in grouped_data:
-                grouped_data[temp] = {'p6': [], 'variance': []}
-            grouped_data[temp]['p6'].append(entry.p6)
-            grouped_data[temp]['variance'].append(entry.ring_size_variance)
+                grouped_data[temp] = {"p6": [], "variance": []}
+            grouped_data[temp]["p6"].append(entry.p6)
+            grouped_data[temp]["variance"].append(entry.ring_size_variance)
         # Calculate averages
-        avg_data = np.array([[temp, np.mean(group['p6']), np.mean(group['variance'])] for temp, group in grouped_data.items()])
+        avg_data = np.array([[temp, np.mean(group["p6"]), np.mean(group["variance"])] for temp, group in grouped_data.items()])
         # Create color map
         cmap = cm.get_cmap("Wistia")
         norm = Normalize(vmin=np.min(avg_data[:, 0]), vmax=np.max(avg_data[:, 0]))
@@ -230,8 +224,7 @@ class ResultsData:
         ax = plt.subplot(gs[0])
         remove_axes(ax)
         pore_sizes = plot_data(temps, thermal_temps, anneal_temps, cmap)
-        format_axes(ax, "Pore Size", r"Average Relative Energy ($\mathdefault{E_h Node^{-1}}$)",
-                    min(pore_sizes), max(pore_sizes), 0, None, 5, None)
+        format_axes(ax, "Pore Size", r"Average Relative Energy ($\mathdefault{E_h Node^{-1}}$)", min(pore_sizes), max(pore_sizes), 0, None, 5, None)
         arrowed_spines(ax)
         colour_bar_axes = plt.subplot(gs[1])
         add_colourbar(colour_bar_axes, cmap, thermal_temps, " \n" + r"$\mathdefault{log_{10}(T_{thermal})}$")
@@ -239,8 +232,7 @@ class ResultsData:
     def plot_energy_vs_pore_size_2(self) -> None:
         # Dont consider annealing temperature
         data = self.data_by_therm_pore(get_relative_energy)
-        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()}
-                for temperature, pore_sizes in data.items()}
+        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()} for temperature, pore_sizes in data.items()}
         cmap = cm.get_cmap("cool")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
         ax = plt.subplot(gs[0])
@@ -258,8 +250,7 @@ class ResultsData:
 
     def plot_entropy_vs_pore_size(self) -> None:
         data = self.data_by_therm_pore(get_relative_entropy)
-        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()}
-                for temperature, pore_sizes in data.items()}
+        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()} for temperature, pore_sizes in data.items()}
         cmap = cm.get_cmap("Wistia")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
         ax = plt.subplot(gs[0])
@@ -281,8 +272,7 @@ class ResultsData:
 
     def plot_energy_vs_pore_size_error_bars(self) -> None:
         data = self.data_by_therm_pore(get_relative_energy)
-        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()}
-                for temperature, pore_sizes in data.items()}
+        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()} for temperature, pore_sizes in data.items()}
         cmap = cm.get_cmap("Wistia")
 
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
@@ -294,8 +284,7 @@ class ResultsData:
             sorted_pore_sizes = dict(sorted(pore_sizes.items()))
             color = cmap((temperature - min_temp) / temp_range)
             ax.plot(list(sorted_pore_sizes.keys()), [mean for mean, std in sorted_pore_sizes.values()], color=color)
-            ax.errorbar(list(sorted_pore_sizes.keys()), [mean for mean, std in sorted_pore_sizes.values()],
-                        yerr=[std for mean, std in sorted_pore_sizes.values()], color=color, fmt='o')
+            ax.errorbar(list(sorted_pore_sizes.keys()), [mean for mean, std in sorted_pore_sizes.values()], yerr=[std for mean, std in sorted_pore_sizes.values()], color=color, fmt="o")
         format_axes(ax, "Pore Size", r"Average Relative Energy ($\mathdefault{E_h Node^{-1}}$)", list(sorted_pore_sizes.keys()))
         arrowed_spines(ax)
         colour_bar_axes = plt.subplot(gs[1])
@@ -303,8 +292,7 @@ class ResultsData:
 
     def plot_energy_vs_pore_size_fill_between(self) -> None:
         data = self.data_by_therm_pore(get_relative_energy)
-        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()}
-                for temperature, pore_sizes in data.items()}
+        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()} for temperature, pore_sizes in data.items()}
         max_pore_size = max(pore for pore_sizes in data.values() for pore in pore_sizes.keys())
         cmap = cm.get_cmap("Wistia")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
@@ -328,8 +316,7 @@ class ResultsData:
     def plot_energy_vs_pore_size_fill_between_2(self) -> None:
         # Only plot the minimum and maximum thermalising temperatures
         data = self.data_by_therm_pore(get_relative_energy)
-        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()}
-                for temperature, pore_sizes in data.items()}
+        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()} for temperature, pore_sizes in data.items()}
         cmap = cm.get_cmap("Wistia")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
         ax = plt.subplot(gs[0])
@@ -353,8 +340,7 @@ class ResultsData:
 
     def plot_pearsons_vs_pore_size(self) -> None:
         data = self.data_by_therm_pore(get_relative_pearsons)
-        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()}
-                for temperature, pore_sizes in data.items()}
+        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()} for temperature, pore_sizes in data.items()}
         cmap = cm.get_cmap("Wistia")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
         ax = plt.subplot(gs[0])
@@ -375,9 +361,7 @@ class ResultsData:
         add_colourbar(colour_bar_axes, cmap, list(data.keys()), " \n" + r"$\mathdefault{log_{10}(T_{thermal})}$")
 
     def plot_energy_vs_distance(self) -> None:
-        data = [(entry.pore_distance, entry.energy / entry.num_nodes - RELATIVE_ENERGY,
-                 entry.changing_vars.get("Thermalising temperature"),
-                 entry.changing_vars.get("Annealing end temperature")) for entry in self.entries]
+        data = [(entry.pore_distance, entry.energy / entry.num_nodes - RELATIVE_ENERGY, entry.changing_vars.get("Thermalising temperature"), entry.changing_vars.get("Annealing end temperature")) for entry in self.entries]
 
         # Extract pore distances, energies, and thermalising temperatures
         pore_distances, energies, thermal_temps, _ = zip(*data)
@@ -406,12 +390,10 @@ class ResultsData:
             data[entry.pore_size][entry.pore_distance].append(entry.energy / entry.num_nodes - RELATIVE_ENERGY)
 
         # Calculate mean and standard deviation for each unique pore_distance for each pore_size
-        average_data = {pore_size: {distance: (np.mean(energies), np.std(energies)) for distance, energies in distances.items()}
-                        for pore_size, distances in data.items()}
+        average_data = {pore_size: {distance: (np.mean(energies), np.std(energies)) for distance, energies in distances.items()} for pore_size, distances in data.items()}
 
         # sort data by distance
-        average_data = {pore_size: {distance: energy for distance, energy in sorted(distances.items(), key=lambda x: x[0])}
-                        for pore_size, distances in average_data.items()}
+        average_data = {pore_size: {distance: energy for distance, energy in sorted(distances.items(), key=lambda x: x[0])} for pore_size, distances in average_data.items()}
 
         # Get a list of unique pore sizes
         pore_sizes = sorted(set(average_data.keys()))
@@ -443,11 +425,9 @@ class ResultsData:
         data = defaultdict(lambda: defaultdict(list))
         for entry in self.entries:
             data[entry.pore_size][entry.pore_concentration].append(entry.energy / entry.num_nodes - RELATIVE_ENERGY)
-        average_data = {pore_size: {concentration: np.mean(energies) for concentration, energies in concentrations.items()}
-                        for pore_size, concentrations in data.items()}
+        average_data = {pore_size: {concentration: np.mean(energies) for concentration, energies in concentrations.items()} for pore_size, concentrations in data.items()}
         # sort data by concentration
-        average_data = {pore_size: {concentration: energy for concentration, energy in sorted(concentrations.items(), key=lambda x: x[0])}
-                        for pore_size, concentrations in average_data.items()}
+        average_data = {pore_size: {concentration: energy for concentration, energy in sorted(concentrations.items(), key=lambda x: x[0])} for pore_size, concentrations in average_data.items()}
         # Get a list of unique pore sizes
         pore_sizes = sorted(set(average_data.keys()))
         cmap = cm.get_cmap("cool")
@@ -466,11 +446,9 @@ class ResultsData:
         data = defaultdict(lambda: defaultdict(list))
         for entry in self.entries:
             data[entry.pore_size][entry.pore_concentration].append((entry.energy / entry.num_nodes - RELATIVE_ENERGY) / entry.pore_size)
-        average_data = {pore_size: {concentration: np.mean(energies) for concentration, energies in concentrations.items()}
-                        for pore_size, concentrations in data.items()}
+        average_data = {pore_size: {concentration: np.mean(energies) for concentration, energies in concentrations.items()} for pore_size, concentrations in data.items()}
         # sort data by concentration
-        average_data = {pore_size: {concentration: energy for concentration, energy in sorted(concentrations.items(), key=lambda x: x[0])}
-                        for pore_size, concentrations in average_data.items()}
+        average_data = {pore_size: {concentration: energy for concentration, energy in sorted(concentrations.items(), key=lambda x: x[0])} for pore_size, concentrations in average_data.items()}
         # Get a list of unique pore sizes
         pore_sizes = sorted(set(average_data.keys()))
         cmap = cm.get_cmap("cool")
@@ -491,12 +469,10 @@ class ResultsData:
             data[entry.pore_size][entry.pore_concentration].append((entry.energy / entry.num_nodes - RELATIVE_ENERGY) / entry.ring_area_estimate)
 
         # Calculate mean and standard deviation for each unique pore_concentration for each pore_size
-        average_data = {pore_size: {concentration: (np.mean(energies), np.std(energies)) for concentration, energies in concentrations.items()}
-                        for pore_size, concentrations in data.items()}
+        average_data = {pore_size: {concentration: (np.mean(energies), np.std(energies)) for concentration, energies in concentrations.items()} for pore_size, concentrations in data.items()}
 
         # sort data by concentration
-        average_data = {pore_size: {concentration: energy for concentration, energy in sorted(concentrations.items(), key=lambda x: x[0])}
-                        for pore_size, concentrations in average_data.items()}
+        average_data = {pore_size: {concentration: energy for concentration, energy in sorted(concentrations.items(), key=lambda x: x[0])} for pore_size, concentrations in average_data.items()}
 
         # Get a list of unique pore sizes
         pore_sizes = sorted(set(average_data.keys()))
@@ -524,11 +500,9 @@ class ResultsData:
         data = defaultdict(lambda: defaultdict(list))
         for entry in self.entries:
             data[entry.pore_size][entry.pore_concentration].append((entry.energy / entry.num_nodes - RELATIVE_ENERGY) / entry.ring_area)
-        average_data = {pore_size: {concentration: np.mean(energies) for concentration, energies in concentrations.items()}
-                        for pore_size, concentrations in data.items()}
+        average_data = {pore_size: {concentration: np.mean(energies) for concentration, energies in concentrations.items()} for pore_size, concentrations in data.items()}
         # sort data by concentration
-        average_data = {pore_size: {concentration: energy for concentration, energy in sorted(concentrations.items(), key=lambda x: x[0])}
-                        for pore_size, concentrations in average_data.items()}
+        average_data = {pore_size: {concentration: energy for concentration, energy in sorted(concentrations.items(), key=lambda x: x[0])} for pore_size, concentrations in average_data.items()}
         # Get a list of unique pore sizes
         pore_sizes = sorted(set(average_data.keys()))
         cmap = cm.get_cmap("cool")
@@ -560,7 +534,7 @@ class ResultsData:
         colour_bar_axes = plt.subplot(gs[1])
         add_colourbar(colour_bar_axes, cmap, [0], "Annealing Temperature")
 
-    def gen_bond_angles(self) -> Generator[float, None, None]:
+    def gen_bond_angles(self) -> Generator[float]:
         for result_entry in self.entries:
             for bond_angle in result_entry.get_bond_angles_fast():
                 yield bond_angle
@@ -577,8 +551,7 @@ class ResultsData:
 
     def plot_angle_variance_vs_pore_size(self) -> None:
         data = self.data_by_therm_pore(get_angle_variance)
-        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()}
-                for temperature, pore_sizes in data.items()}
+        data = {temperature: {pore: (np.mean(energies), np.std(energies)) for pore, energies in pore_sizes.items()} for temperature, pore_sizes in data.items()}
         cmap = cm.get_cmap("Wistia")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
         ax = plt.subplot(gs[0])
@@ -612,8 +585,7 @@ class ResultsData:
 
     def plot_bond_length_variance_vs_pore_size(self) -> None:
         data = self.data_by_therm_pore(get_bond_length_variance)
-        data = {temperature: {pore: (np.mean(variances), np.std(variances)) for pore, variances in pore_sizes.items()}
-                for temperature, pore_sizes in data.items()}
+        data = {temperature: {pore: (np.mean(variances), np.std(variances)) for pore, variances in pore_sizes.items()} for temperature, pore_sizes in data.items()}
         cmap = cm.get_cmap("Wistia")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
         ax = plt.subplot(gs[0])
@@ -641,8 +613,7 @@ class ResultsData:
     def plot_bond_length_variance_vs_pore_concentration_with_acceptance_rate(self) -> None:
         # Get the bond length variance data
         data = self.data_by_therm_pore_fraction(get_bond_length_variance)
-        data = {temperature: {fraction: (np.mean(variances), np.std(variances)) for fraction, variances in fractions.items()}
-                for temperature, fractions in data.items()}
+        data = {temperature: {fraction: (np.mean(variances), np.std(variances)) for fraction, variances in fractions.items()} for temperature, fractions in data.items()}
 
         cmap = cm.get_cmap("Wistia")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
@@ -683,8 +654,7 @@ class ResultsData:
         data = defaultdict(lambda: defaultdict(list))
         # use the colour bar for thermalisation temperature
         data = self.data_by_therm_pore_fraction(get_bond_length_variance)
-        data = {temperature: {concentration: (np.mean(variances), np.std(variances)) for concentration, variances in concentrations.items()}
-                for temperature, concentrations in data.items()}
+        data = {temperature: {concentration: (np.mean(variances), np.std(variances)) for concentration, variances in concentrations.items()} for temperature, concentrations in data.items()}
         cmap = cm.get_cmap("Wistia")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
         ax = plt.subplot(gs[0])
@@ -707,8 +677,7 @@ class ResultsData:
         data = defaultdict(lambda: defaultdict(list))
         # use the colour bar for thermalisation temperature
         data = self.data_by_therm_pore_fraction(get_angle_variance)
-        data = {temperature: {concentration: (np.mean(variances), np.std(variances)) for concentration, variances in concentrations.items()}
-                for temperature, concentrations in data.items()}
+        data = {temperature: {concentration: (np.mean(variances), np.std(variances)) for concentration, variances in concentrations.items()} for temperature, concentrations in data.items()}
         cmap = cm.get_cmap("Wistia")
         gs = gridspec.GridSpec(1, 2, width_ratios=[20, 1])
         ax = plt.subplot(gs[0])
@@ -727,6 +696,6 @@ class ResultsData:
         colour_bar_axes = plt.subplot(gs[1])
         add_colourbar(colour_bar_axes, cmap, list(data.keys()), " \n" + r"$\mathdefault{log_{10}(T_{thermal})}$")
 
-    @ property
+    @property
     def num_entries(self) -> int:
         return len(self.entries)

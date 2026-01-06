@@ -1,20 +1,17 @@
 from pathlib import Path
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import cm
 from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
-from matplotlib.colors import (BoundaryNorm, Colormap, ListedColormap,
-                               Normalize, to_rgba)
+from matplotlib.colors import BoundaryNorm, Colormap, ListedColormap, Normalize, to_rgba
 from matplotlib.patches import FancyArrow
 from matplotlib.ticker import NullLocator
 
 
 def get_ring_colours_1() -> list[tuple[float, float, float, float]]:
-    """
-    Gets a colour palette for ring sizes 
+    """Gets a colour palette for ring sizes.
 
     Returns:
         A list of colours for the rings, where each index is equivalent to a ring size
@@ -28,8 +25,7 @@ def get_ring_colours_1() -> list[tuple[float, float, float, float]]:
 
 
 def get_ring_colours_2(average_ring_size: int = 6) -> list[tuple[float, float, float, float]]:
-    """
-    Gets a colour palette for ring sizes 
+    """Gets a colour palette for ring sizes.
 
     Returns:
         A list of colours for the rings, where each index is equivalent to a ring size
@@ -43,15 +39,11 @@ def get_ring_colours_2(average_ring_size: int = 6) -> list[tuple[float, float, f
     norm_upper = Normalize(vmin=average_ring_size, vmax=average_ring_size + 6)
     colour_mean = cm.get_cmap("Greys")(50)
 
-    return [to_rgba("white") if i < 3 else
-            colour_mean if np.abs(i - average_ring_size) < 1e-6 else
-            map_lower(norm_lower(i)) if i < average_ring_size else
-            map_upper(norm_upper(i)) for i in range(340)]
+    return [to_rgba("white") if i < 3 else colour_mean if np.abs(i - average_ring_size) < 1e-6 else map_lower(norm_lower(i)) if i < average_ring_size else map_upper(norm_upper(i)) for i in range(340)]
 
 
 def get_ring_colours_3() -> list[tuple[float, float, float, float]]:
-    """
-    Gets a colour palette for ring sizes 
+    """Gets a colour palette for ring sizes.
 
     Returns:
         A list of colours for the rings, where each index is equivalent to a ring size
@@ -65,8 +57,7 @@ def get_ring_colours_3() -> list[tuple[float, float, float, float]]:
 
 
 def get_ring_colours_4() -> list[tuple[float, float, float, float]]:
-    """
-    Gets a colour palette for ring sizes (best palette)
+    """Gets a colour palette for ring sizes (best palette).
 
     Returns:
         A list of colours for the rings, where each index is equivalent to a ring size
@@ -78,8 +69,7 @@ def get_ring_colours_4() -> list[tuple[float, float, float, float]]:
 
 
 def save_plot(save_path: Path, dimensions: tuple[int, int] = (6, 6), dpi: int = 300) -> None:
-    """
-    Saves the current plot to a file without clearing it
+    """Saves the current plot to a file without clearing it.
 
     Args:
         save_path: The path to save the plot to
@@ -88,18 +78,11 @@ def save_plot(save_path: Path, dimensions: tuple[int, int] = (6, 6), dpi: int = 
     """
     fig = plt.gcf()
     fig.set_size_inches(dimensions[0], dimensions[1])
-    plt.savefig(save_path, dpi=dpi, bbox_inches='tight', pad_inches=0.1)
+    plt.savefig(save_path, dpi=dpi, bbox_inches="tight", pad_inches=0.1)
 
 
-def arrowed_spines(ax: Axes, x_width_fraction: float = 0.02, x_height_fraction: float = 0.02,
-                   line_width: float = 0, overhang_fraction: float = 0.3,
-                   locations: tuple[str] = ("bottom right", "left up"), **arrow_kwargs) -> dict[str, FancyArrow]:
-
-    arrow_kwargs = {"overhang": overhang_fraction,
-                    "clip_on": False,
-                    "length_includes_head": True,
-                    "head_starts_at_zero": False,
-                    **arrow_kwargs}
+def arrowed_spines(ax: Axes, x_width_fraction: float = 0.02, x_height_fraction: float = 0.02, line_width: float = 0, overhang_fraction: float = 0.3, locations: tuple[str] = ("bottom right", "left up"), **arrow_kwargs) -> dict[str, FancyArrow]:
+    arrow_kwargs = {"overhang": overhang_fraction, "clip_on": False, "length_includes_head": True, "head_starts_at_zero": False, **arrow_kwargs}
 
     line_width = line_width or ax.spines["left"].get_linewidth()
     xmin, xmax = ax.get_xlim()
@@ -113,29 +96,30 @@ def arrowed_spines(ax: Axes, x_width_fraction: float = 0.02, x_height_fraction: 
     yhw = hw / (ymax - ymin) * (xmax - xmin) * height / width
     yhl = hl / (xmax - xmin) * (ymax - ymin) * width / height
 
-    annotations = {location: ax.arrow(0 if side == "zero" else (xmin if side in {"left", "bottom"} else xmax),
-                                      0 if side == "zero" else (ymin if side in {"left", "bottom"} else ymax),
-                                      0 if direction in {"left", "right"} else ((xmax - xmin) + 2 * hl),
-                                      0 if direction in {"up", "down"} else (ymax - ymin),
-                                      fc="k", ec="k", lw=line_width,
-                                      head_width=(yhw, hw)[direction in {"up", "down"}],
-                                      head_length=(yhl, hl)[direction in {"up", "down"}],
-                                      **arrow_kwargs)
-                   for location in locations for side, direction in [location.split(" ")]}
+    annotations = {
+        location: ax.arrow(
+            0 if side == "zero" else (xmin if side in {"left", "bottom"} else xmax),
+            0 if side == "zero" else (ymin if side in {"left", "bottom"} else ymax),
+            0 if direction in {"left", "right"} else ((xmax - xmin) + 2 * hl),
+            0 if direction in {"up", "down"} else (ymax - ymin),
+            fc="k",
+            ec="k",
+            lw=line_width,
+            head_width=(yhw, hw)[direction in {"up", "down"}],
+            head_length=(yhl, hl)[direction in {"up", "down"}],
+            **arrow_kwargs,
+        )
+        for location in locations
+        for side, direction in [location.split(" ")]
+    }
 
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
     return annotations
 
 
-def format_axes(ax: Axes,
-                x_label: str, y_label: str,
-                xlo: Optional[float] = None, xhi: Optional[float] = None,
-                ylo: Optional[float] = None, yhi: Optional[float] = None,
-                x_tick_separation: Optional[float] = None, y_tick_separation: Optional[float] = None,
-                label_font_size: int = 20, ticks_font_size: int = 20) -> None:
-    """
-    Formats the axes of a plot
+def format_axes(ax: Axes, x_label: str, y_label: str, xlo: float | None = None, xhi: float | None = None, ylo: float | None = None, yhi: float | None = None, x_tick_separation: float | None = None, y_tick_separation: float | None = None, label_font_size: int = 20, ticks_font_size: int = 20) -> None:
+    """Formats the axes of a plot.
 
     Args:
         ax: The axes to format
@@ -150,7 +134,6 @@ def format_axes(ax: Axes,
         label_font_size: The font size of the axis labels
         ticks_font_size: The font size of the axis ticks
     """
-
     ax.set_xlabel(x_label, fontsize=label_font_size)
     ax.set_ylabel(y_label, fontsize=label_font_size)
     xlo = ax.get_xlim()[0] if xlo is None else xlo
@@ -163,12 +146,11 @@ def format_axes(ax: Axes,
         ax.set_xticks(np.arange(xlo, xhi + 1, x_tick_separation))
     if y_tick_separation is not None:
         ax.set_yticks(np.arange(ylo, yhi + 1, y_tick_separation))
-    ax.tick_params(axis='both', which='major', labelsize=ticks_font_size)
+    ax.tick_params(axis="both", which="major", labelsize=ticks_font_size)
 
 
 def remove_axes(ax: Axes, spines: list[str] = ["top", "right"]) -> None:
-    """
-    Removes the specified spines from an axes
+    """Removes the specified spines from an axes.
 
     Args:
         ax: The axes to remove the spines from
@@ -179,8 +161,7 @@ def remove_axes(ax: Axes, spines: list[str] = ["top", "right"]) -> None:
 
 
 def add_colourbar(ax: Axes, cmap: Colormap, ticks: list, label: str, orientation: str = "vertical") -> None:
-    """
-    Adds a colourbar to axes
+    """Adds a colourbar to axes.
 
     Args:
         ax: The axes to add the colourbar to
@@ -199,8 +180,7 @@ def add_colourbar(ax: Axes, cmap: Colormap, ticks: list, label: str, orientation
 
 
 def add_colourbar_2(ax: Axes, cmap: Colormap, label: str, min_label: float, max_label: float, orientation: str = "vertical") -> None:
-    """
-    Adds a colourbar to axes designed for ring sizes. Labels are centered about each colour
+    """Adds a colourbar to axes designed for ring sizes. Labels are centered about each colour.
 
     Args:
         ax: The axes to add the colourbar to
@@ -222,7 +202,7 @@ def add_colourbar_2(ax: Axes, cmap: Colormap, label: str, min_label: float, max_
 
     # Change the label of the maximum tick to "max_tick+"
     max_tick = int(cbar.get_ticks()[-1])
-    tick_labels = [str(int(tick)) if tick < max_tick else f'{max_tick}+' for tick in cbar.get_ticks()]
+    tick_labels = [str(int(tick)) if tick < max_tick else f"{max_tick}+" for tick in cbar.get_ticks()]
     cbar.set_ticklabels(tick_labels)
 
     # Remove minor ticks
@@ -233,8 +213,7 @@ def add_colourbar_2(ax: Axes, cmap: Colormap, label: str, min_label: float, max_
 
 
 def add_colourbar_3(ax: Axes, cmap: Colormap, ticks: list, label: str, orientation: str = "vertical") -> None:
-    """
-    Adds a colourbar to axes
+    """Adds a colourbar to axes.
 
     Args:
         ax: The axes to add the colourbar to

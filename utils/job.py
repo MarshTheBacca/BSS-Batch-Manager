@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from matplotlib import pyplot as plt
 
@@ -10,7 +9,11 @@ from .bss_input_data import BSSInputData
 from .bss_output_data import BSSOutputData
 from .introduce_defects.utils.bss_data import BSSData
 from .other_utils import clean_name
-from .var import Var
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from .var import Var
 
 
 @dataclass
@@ -27,9 +30,8 @@ class Job:
         self.changing_vars_dict = {var.name: var.value for var in self.changing_vars}
 
     @staticmethod
-    def from_files(path: Path, fixed_rings_path: Optional[Path] = None) -> Job:
-        """
-        Creates a Job object
+    def from_files(path: Path, fixed_rings_path: Path | None = None) -> Job:
+        """Creates a Job object
 
         Args:
             path: Path to the job folder
@@ -46,7 +48,7 @@ class Job:
         bss_output_data = BSSOutputData(path.joinpath("output_files", "bss_stats.csv"))
         return Job(name, path, bss_data, bss_input_data, bss_output_data, changing_vars)
 
-    def create_image(self, output_path: Optional[Path] = None, title: Optional[str] = None) -> None:
+    def create_image(self, output_path: Path | None = None, title: str | None = None) -> None:
         if output_path is None:
             output_path = self.path.joinpath("network.svg")
         if title is None:

@@ -1,13 +1,10 @@
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 
-def import_2d(path: Path, del_indexes: Optional[tuple[int, ...]] = None,
-              remove_blanks: bool = True) -> list[list[str]]:
-    """
-    Reads a CSV file and returns a 2D list of the data
+def import_2d(path: Path, del_indexes: tuple[int, ...] | None = None, remove_blanks: bool = True) -> list[list[str]]:
+    """Reads a CSV file and returns a 2D list of the data.
 
     Args:
         path (Path): The path to the CSV file
@@ -17,7 +14,7 @@ def import_2d(path: Path, del_indexes: Optional[tuple[int, ...]] = None,
 
         remove_blanks (bool, optional): If True, removes blank lines from the file. Defaults to True.
     """
-    with open(path, "r") as file:
+    with open(path) as file:
         string = file.read()
     if string.strip() == "":
         return []
@@ -29,14 +26,12 @@ def import_2d(path: Path, del_indexes: Optional[tuple[int, ...]] = None,
             final.append([])
     if del_indexes is not None:
         for i in range(len(del_indexes) - 1, -1, -1):
-            del (final[del_indexes[i]])
+            del final[del_indexes[i]]
     return final
 
 
-def deliminator(length: int, width: int, row_index: int, col_index: int,
-                delims: list = [",", "\n"]) -> str:
-    """
-    Gets the appropriate deliminator for a given row and column
+def deliminator(length: int, width: int, row_index: int, col_index: int, delims: list = [",", "\n"]) -> str:
+    r"""Gets the appropriate deliminator for a given row and column.
 
     Args:
         length: The length of the array
@@ -44,25 +39,25 @@ def deliminator(length: int, width: int, row_index: int, col_index: int,
         row_index: The index of the current row
         col_index: The index of the current column
         delims: The deliminators to use. Defaults to [",", "\n"].
+
     Returns:
         The deliminator
     """
     if col_index < width - 1:
         return delims[0]
-    elif row_index < length - 1:
+    if row_index < length - 1:
         return delims[1]
     return ""
 
 
-def export_2d(path: Path, array: list | tuple, col_types: Optional[tuple[int]] = None,
-              date_format: str = "%Y-%m-%d", datetime_format: str = "%Y-%m-%d %H:%M:%S.%f %Z") -> None:
+def export_2d(path: Path, array: list | tuple, col_types: tuple[int] | None = None, date_format: str = "%Y-%m-%d", datetime_format: str = "%Y-%m-%d %H:%M:%S.%f %Z") -> None:
     length = len(array)
     width = len(array[0])  # assuming all rows are of the same length
     string = ""
     if col_types is None:
         col_types = ["str"] * width
-    for i in range(0, length):
-        for x in range(0, width):
+    for i in range(length):
+        for x in range(width):
             if col_types[x] == "str":
                 string += array[i][x]
             elif col_types[x] == "date":
@@ -76,12 +71,8 @@ def export_2d(path: Path, array: list | tuple, col_types: Optional[tuple[int]] =
         file.write(string)
 
 
-def converter(raw_data: list[list[str]], data_types: Optional[list[str] | tuple[str, ...]] = None,
-              wanted_cols: Optional[list[int] | tuple[int, ...]] = None,
-              date_format: str = "%Y-%m-%d", datetime_format: str = "%Y-%m-%d %H:%M:%S.%f %Z",
-              time_zone: timezone = timezone.utc) -> list:
-    """
-    Converts columns of data to the specified data types
+def converter(raw_data: list[list[str]], data_types: list[str] | tuple[str, ...] | None = None, wanted_cols: list[int] | tuple[int, ...] | None = None, date_format: str = "%Y-%m-%d", datetime_format: str = "%Y-%m-%d %H:%M:%S.%f %Z", time_zone: timezone = UTC) -> list:
+    """Converts columns of data to the specified data types.
 
     Args:
         raw_data: The data to be converted
@@ -90,11 +81,12 @@ def converter(raw_data: list[list[str]], data_types: Optional[list[str] | tuple[
         date_format: The format of the date columns. Defaults to "%Y-%m-%d".
         datetime_format: The format of the datetime columns. Defaults to "%Y-%m-%d %H:%M:%S.%f %Z".
         time_zone: The timezone to use for datetime columns. Defaults to timezone.utc.
+
     Returns:
         The converted data
     """
     if wanted_cols is None:
-        wanted_cols = list(range(0, len(raw_data[0])))
+        wanted_cols = list(range(len(raw_data[0])))
     if data_types is None:
         data_types = ["str"] * len(raw_data[0])
 
@@ -102,17 +94,16 @@ def converter(raw_data: list[list[str]], data_types: Optional[list[str] | tuple[
         try:
             if data_type == "date":
                 return datetime.strptime(value, date_format).date()
-            elif data_type == "str":
+            if data_type == "str":
                 return str(value)
-            elif data_type == "int":
+            if data_type == "int":
                 return int(value)
-            elif data_type == "float":
+            if data_type == "float":
                 return float(value)
-            elif data_type == "datetime":
+            if data_type == "datetime":
                 return datetime.strptime(value, datetime_format).replace(tzinfo=time_zone)
-            else:
-                print("Unknown datatype detected")
-                return value
+            print("Unknown datatype detected")
+            return value
         except ValueError:
             print(f"Error converting value {value} to {data_type}")
             return value
@@ -121,8 +112,8 @@ def converter(raw_data: list[list[str]], data_types: Optional[list[str] | tuple[
 
 
 def remove_blanks(array: list[list]) -> list[list]:
-    """
-    Removes all empty lists from the input list
+    """Removes all empty lists from the input list.
+
     Args:
         array: The list to be cleaned
     Returns:
@@ -132,8 +123,7 @@ def remove_blanks(array: list[list]) -> list[list]:
 
 
 def get_options(config_path: Path) -> dict:
-    """
-    Reads a config file and returns user-defined options, with default values if not specified
+    """Reads a config file and returns user-defined options, with default values if not specified.
 
     Args:
         config_path (Path): The path to the config file

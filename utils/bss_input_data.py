@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import TextIO
+from typing import TYPE_CHECKING, TextIO
 
 from tabulate import tabulate
-
 
 from .other_utils import string_to_value, value_to_string
 from .validation_utils import get_valid_int
 from .var import BondSelectionVar, BoolVar, FloatVar, IntVar, Var
-from .variation_modes import VariationMode
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 OUTPUT_FILE_TITLE = "Bond Switch Simulator input file"
 DASHES = "--------------------------------------------------"
@@ -31,10 +30,9 @@ def read_section(input_file: TextIO, title: str, types: tuple[Var, ...]) -> Sect
         raise ValueError(f"Error reading section {title}: {e}")
 
 
-def write_section(output_file: TextIO, section_title: str, section_dict: dict[str: BSSType]) -> None:
+def write_section(output_file: TextIO, section_title: str, section_dict: dict[str:BSSType]) -> None:
     output_file.write(f"{section_title}\n")
-    for key, value in section_dict.items():
-        output_file.write(f"{value_to_string(value):<30}{key}\n")
+    output_file.writelines(f"{value_to_string(value):<30}{key}\n" for key, value in section_dict.items())
     output_file.write(f"{DASHES}\n")
 
 
@@ -48,29 +46,15 @@ class BSSInputData:
 
     @staticmethod
     def from_file(path: Path) -> BSSInputData:
-        with open(path, "r") as input_file:
+        with open(path) as input_file:
             input_file.readline()
-            network_restrictions_section = read_section(input_file, "Network Restrictions",
-                                                        (IntVar(name="Minimum ring size", lower=3),
-                                                         IntVar(name="Maximum ring size"),
-                                                         FloatVar(name="Max bond length", lower=0),
-                                                         FloatVar(name="Max bond angle", lower=0, upper=360),
-                                                         BoolVar(name="Enable fixed rings", is_table_relevant=False)))
-            bond_selection_process_section = read_section(input_file, "Bond Selection Process",
-                                                          (IntVar(name="Random seed"),
-                                                           BondSelectionVar(name="Bond selection process", is_table_relevant=True),
-                                                           FloatVar(name="Weighted decay")))
-            temperature_schedule_section = read_section(input_file, "Temperature Schedule",
-                                                        (FloatVar(name="Thermalising temperature"),
-                                                         FloatVar(name="Annealing start temperature"),
-                                                         FloatVar(name="Annealing end temperature"),
-                                                         IntVar(name="Annealing steps", lower=0),
-                                                         IntVar(name="Thermalising steps", lower=0)))
-            analysis_section = read_section(input_file, "Analysis",
-                                            (IntVar(name="Analysis write interval", lower=0, is_table_relevant=False),
-                                             BoolVar(name="Write movie file", is_table_relevant=False)))
-            return BSSInputData([network_restrictions_section, bond_selection_process_section,
-                                 temperature_schedule_section, analysis_section])
+            network_restrictions_section = read_section(
+                input_file, "Network Restrictions", (IntVar(name="Minimum ring size", lower=3), IntVar(name="Maximum ring size"), FloatVar(name="Max bond length", lower=0), FloatVar(name="Max bond angle", lower=0, upper=360), BoolVar(name="Enable fixed rings", is_table_relevant=False))
+            )
+            bond_selection_process_section = read_section(input_file, "Bond Selection Process", (IntVar(name="Random seed"), BondSelectionVar(name="Bond selection process", is_table_relevant=True), FloatVar(name="Weighted decay")))
+            temperature_schedule_section = read_section(input_file, "Temperature Schedule", (FloatVar(name="Thermalising temperature"), FloatVar(name="Annealing start temperature"), FloatVar(name="Annealing end temperature"), IntVar(name="Annealing steps", lower=0), IntVar(name="Thermalising steps", lower=0)))
+            analysis_section = read_section(input_file, "Analysis", (IntVar(name="Analysis write interval", lower=0, is_table_relevant=False), BoolVar(name="Write movie file", is_table_relevant=False)))
+            return BSSInputData([network_restrictions_section, bond_selection_process_section, temperature_schedule_section, analysis_section])
 
     def export(self, path: Path) -> None:
         with open(path, "w+") as output_file:
@@ -78,8 +62,7 @@ class BSSInputData:
             output_file.write(f"{DASHES}\n")
             for section in self.sections:
                 output_file.write(f"{section.title}\n")
-                for var in section.variables:
-                    output_file.write(f"{value_to_string(var.value):<30}{var.name}\n")
+                output_file.writelines(f"{value_to_string(var.value):<30}{var.name}\n" for var in section.variables)
                 output_file.write(f"{DASHES}\n")
 
     def table_print(self, relevant_only: bool = False) -> None:
@@ -105,7 +88,7 @@ class BSSInputData:
         return string
 
 
-@ dataclass
+@dataclass
 class Section:
     title: str
     variables: list[Var] = field(default_factory=list)

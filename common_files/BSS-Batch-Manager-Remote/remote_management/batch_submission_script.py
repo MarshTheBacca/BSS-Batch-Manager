@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import fnmatch
 import getpass
 import logging
@@ -7,11 +8,10 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from typing import Optional
-from zipfile import BadZipFile, ZipFile
 import traceback
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from zipfile import BadZipFile, ZipFile
 
 EXEC_NAME: str = "bond_switch_simulator.exe"
 CWD: Path = Path(__file__).parent.resolve()
@@ -24,36 +24,28 @@ ASSUMPTION_TIME = 10
 
 
 def initialise_log(log_path: Path) -> None:
-    """
-    Sets up the logging for the script.
+    """Sets up the logging for the script.
+
     The log file is stored in the same directory as the script.
     """
-    log_path.open('w').close()  # Clear the log
-    logging.basicConfig(filename=log_path,
-                        format="[%(asctime)s] [%(levelname)s]: %(message)s",
-                        datefmt="%Y-%m-%d %H:%M:%S",
-                        level=logging.INFO)
+    log_path.open("w").close()  # Clear the log
+    logging.basicConfig(filename=log_path, format="[%(asctime)s] [%(levelname)s]: %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
 
 
 def command_lines(command_array: str) -> list[str]:
-    """
-    Executes a command on the remote server and returns the output as a list of lines
+    """Executes a command on the remote server and returns the output as a list of lines.
 
     Args:
         command_array: The command to be executed
     Returns:
         A list of the lines of the output
     """
-    lines = subprocess.run(command_array, stdout=subprocess.PIPE, shell=True).stdout.decode("utf-8").split("\n")[:-1]
+    lines = subprocess.run(command_array, check=False, stdout=subprocess.PIPE, shell=True).stdout.decode("utf-8").split("\n")[:-1]
     return lines
 
 
-def create_job_script(template_file_path: Path,
-                      save_path: Path,
-                      exec_name: str,
-                      job_desc: str = "qsub_log") -> None:
-    """
-    Creates a job submission script from a template file with the correct paths, job description and executable name
+def create_job_script(template_file_path: Path, save_path: Path, exec_name: str, job_desc: str = "qsub_log") -> None:
+    """Creates a job submission script from a template file with the correct paths, job description and executable name.
 
     Args:
         template_file_path: The path to the template file
@@ -77,8 +69,7 @@ def create_job_script(template_file_path: Path,
 
 
 def import_qstat(username: str) -> list[tuple[int, str, str, datetime]]:
-    """
-    Gets the job id, job name and start time of all jobs in qstat for a given username
+    """Gets the job id, job name and start time of all jobs in qstat for a given username.
 
     Args:
         username: The username to search for in qstat
@@ -104,15 +95,16 @@ def import_qstat(username: str) -> list[tuple[int, str, str, datetime]]:
             continue
         # The job-name line
         job_name = line.split()[2]
-        start = datetime.combine(start_date, start_time, tzinfo=timezone.utc)
+        start = datetime.combine(start_date, start_time, tzinfo=UTC)
         jobs.append((job_id, job_name, job_status, start))
     return jobs
 
 
 def prepare_job(job_path: Path, job_script_template_path: Path, exec_path: Path, batch_desc: str) -> None:
-    """
-    Copy over initial_network and initial_lammps_files directories and the executable to the job's input_files directory
-    and create a job submission script
+    """Prepare a job by copying files.
+
+    Copies initial_network and initial_lammps_files directories and the executable to
+    the job's input_files directory and create a job submission script
 
     Args:
         run_path: The path to the batch of jobs
@@ -124,10 +116,7 @@ def prepare_job(job_path: Path, job_script_template_path: Path, exec_path: Path,
     shutil.copytree(job_path.parent.parent.joinpath("initial_lammps_files"), input_files_path.joinpath("lammps_files"))
     shutil.copy(exec_path, job_path.joinpath(exec_path.name))
     job_path.joinpath("output_files").mkdir()
-    create_job_script(job_script_template_path,
-                      job_path.joinpath("job_submission_script.sh"),
-                      exec_path.name,
-                      f"{batch_desc}_{job_path.name}")
+    create_job_script(job_script_template_path, job_path.joinpath("job_submission_script.sh"), exec_path.name, f"{batch_desc}_{job_path.name}")
 
 
 def safe_remove(path: Path) -> None:
@@ -141,15 +130,12 @@ def safe_remove(path: Path) -> None:
 
 
 def safe_move(source: Path, destination: Path) -> None:
-    try:
+    with contextlib.suppress(FileNotFoundError):
         shutil.move(source, destination)
-    except FileNotFoundError:
-        pass
 
 
 def emergency_clean(path: Path) -> None:
-    """
-    Removes all files that are in the remove_files set from the given directory recursively
+    """Removes all files that are in the remove_files set from the given directory recursively.
 
     Args:
         path: The path to the directory to clean
@@ -160,9 +146,9 @@ def emergency_clean(path: Path) -> None:
             file.unlink()
 
 
-def clean_job(job_path: Path, qsub_output: Optional[Path]) -> None:
-    """
-    Cleans up the job directory by removing the input_files directory and the executable
+def clean_job(job_path: Path, qsub_output: Path | None) -> None:
+    """Cleans up the job directory by removing the input_files directory and the executable.
+
     Works for partially or already cleaned jobs
 
     Args:
@@ -180,8 +166,7 @@ def clean_job(job_path: Path, qsub_output: Optional[Path]) -> None:
 
 
 def clean_finished_jobs(jobs_path: Path, submitted_jobs: dict[str, float], username: str, batch_desc: str, ignore_time: bool = False) -> None:
-    """
-    Identifies and cleans up finished and failed jobs in the run directory
+    """Identifies and cleans up finished and failed jobs in the run directory.
 
     Args:
         run_path: The path to the batch of jobs
@@ -209,7 +194,7 @@ def clean_finished_jobs(jobs_path: Path, submitted_jobs: dict[str, float], usern
         clean_job(job_path, qsub_output_path)
     errored_jobs = {job[1]: job[0] for job in import_qstat(USERNAME) if job[2] == "Eqw"}
     for errored_job, id in errored_jobs.values():
-        logging.warn(f"Job failed: {errored_job}")
+        logging.warning(f"Job failed: {errored_job}")
         command_lines(f"qdel {id}")
     for finished_job in finished_jobs:
         del submitted_jobs[finished_job]
@@ -218,8 +203,8 @@ def clean_finished_jobs(jobs_path: Path, submitted_jobs: dict[str, float], usern
 
 
 def submit_batch(username: str, run_path: Path) -> None:
-    """
-    Submits each batch with a maximum of MAX_PARALLEL_JOBS jobs in parallel
+    """Submits each batch with a maximum of MAX_PARALLEL_JOBS jobs in parallel.
+
     Cleans up any finished batches
 
     Args:
@@ -244,7 +229,7 @@ def submit_batch(username: str, run_path: Path) -> None:
         logging.info(f"Submitting job {job_path.name}...")
         message = command_lines(f"qsub -j y -o {job_path.resolve()} {job_path.joinpath('job_submission_script.sh').resolve()}")
         if message[0].startswith("Unable to run job:"):
-            logging.error(f"Error submitting job {job_path.name}:\n {"\n".join(message)}")
+            logging.error(f"Error submitting job {job_path.name}:\n {'\n'.join(message)}")
         submitted_jobs[f"{batch_desc}_{job_path.name}"] = time.time()
         if counter % cleaning_interval:
             clean_finished_jobs(jobs_path, submitted_jobs, username, batch_desc)
@@ -276,9 +261,8 @@ def submit_batch(username: str, run_path: Path) -> None:
     emergency_clean(jobs_path)
 
 
-def write_log_to_zip(zip_path: Path, log_path: Path, arcname: Optional[str] = None) -> None:
-    """
-    Writes the log file to the zip file and removes the original
+def write_log_to_zip(zip_path: Path, log_path: Path, arcname: str | None = None) -> None:
+    """Writes the log file to the zip file and removes the original.
 
     Args:
         zip_path: The path to the zip file
@@ -309,29 +293,29 @@ def main() -> None:
 
     try:
         # Unzip the batch zip sent over from remote host, and delete it
-        zip_path: Path = next(file for file in run_path.iterdir() if file.suffix == '.zip')
+        zip_path: Path = next(file for file in run_path.iterdir() if file.suffix == ".zip")
         logging.info(f"Unzipping batch zip {zip_path}")
-        with ZipFile(zip_path, 'r') as batch_zip:
+        with ZipFile(zip_path, "r") as batch_zip:
             batch_zip.extractall(run_path)
         zip_path.unlink()
         # Submit the batch using qsub
         submit_batch(USERNAME, run_path)
     except StopIteration:
-        logging.error(f"No zip file found in {run_path}")
+        logging.exception(f"No zip file found in {run_path}")
         sys.exit(1)
     except BadZipFile:
-        logging.error(f"Bad zip file {zip_path}")
+        logging.exception(f"Bad zip file {zip_path}")
         sys.exit(1)
     except Exception as e:
-        logging.error(f"An unexpected error occured: {e}")
-        logging.error(traceback.format_exc())
+        logging.exception(f"An unexpected error occured: {e}")
+        logging.exception(traceback.format_exc())
         sys.exit(1)
     finally:
         try:
             logging.info(f"Zipping up run folder {run_path}")
-            shutil.make_archive(run_path, 'zip', run_path)
+            shutil.make_archive(run_path, "zip", run_path)
         except Exception as e:
-            logging.error(f"An error occurred while creating the return zip: {e}")
+            logging.exception(f"An error occurred while creating the return zip: {e}")
         finally:
             logging.info("Complete!")
             logging.shutdown()

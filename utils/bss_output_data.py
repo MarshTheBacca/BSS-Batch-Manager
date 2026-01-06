@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 TRUE_FALSE_MAP = {"true": True, "false": False}
 
@@ -21,7 +24,7 @@ class BSSOutputData:
             self.pearson_coeffs: list[float] = []
             self.aboav_weaires: list[float] = []
             self.ring_sizes: list[dict] = []
-            with open(self.file_path, "r") as file:
+            with open(self.file_path) as file:
                 for _ in range(4):
                     file.readline()
                 lines = file.readlines()
@@ -108,19 +111,19 @@ class BSSOutputData:
         ring_sizes_filtered = [ring for ring in ring_sizes_transposed if sum(ring) > 0]
 
         # Create labels for the ring sizes
-        ring_labels = ['Ring Size ' + str(ring_size) for ring_size, ring in zip(all_ring_sizes, ring_sizes_transposed) if sum(ring) > 0]
+        ring_labels = ["Ring Size " + str(ring_size) for ring_size, ring in zip(all_ring_sizes, ring_sizes_transposed) if sum(ring) > 0]
 
         plt.stackplot(self.steps, *ring_sizes_filtered, labels=ring_labels)
-        plt.title('Proportion of Ring Sizes per Step', fontsize=20)
-        plt.xlabel('Step', fontsize=20)
-        plt.ylabel('Proportion', fontsize=20)
+        plt.title("Proportion of Ring Sizes per Step", fontsize=20)
+        plt.xlabel("Step", fontsize=20)
+        plt.ylabel("Proportion", fontsize=20)
 
         # Set the limits of the x-axis and y-axis
         plt.gca().set_xlim([0, max(self.steps)])
         plt.gca().set_ylim([0, 1])
 
         # Place the legend outside of the plot
-        plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+        plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
         plt.tight_layout()
 
     # def plot_ring_areas(self) -> None:

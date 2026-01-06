@@ -1,7 +1,6 @@
 import shutil
 import stat
 from pathlib import Path
-from typing import Optional
 
 import paramiko
 
@@ -14,8 +13,7 @@ MIN_FREE_SPACE = 10 * 1024 * 1024 * 1024  # 10 GB
 
 
 def command_print(ssh: paramiko.SSHClient, command: list) -> None:
-    """
-    Prints the output of a command run on a remote server
+    """Prints the output of a command run on a remote server.
 
     Args:
         ssh (paramiko.SSHClient): The SSH client
@@ -36,8 +34,7 @@ def command_print(ssh: paramiko.SSHClient, command: list) -> None:
 
 
 def command_lines(ssh: paramiko.SSHClient, command: str) -> list[str]:
-    """
-    Gets the output of a command run on a remote server as a list of lines
+    """Gets the output of a command run on a remote server as a list of lines.
 
     Args:
         ssh (paramiko.SSHClient): The SSH client
@@ -56,8 +53,9 @@ def command_lines(ssh: paramiko.SSHClient, command: str) -> list[str]:
 
 
 def create_ssh_client(username: str, hostname: str, port: int = 22) -> paramiko.SSHClient:
-    """
-    Creates an SSH client by loading the system host keys and setting the missing host key policy to AutoAddPolicy
+    """Creates an SSH client.
+
+    Loads the system host keys and setting the missing host key policy to AutoAddPolicy.
 
     Args:
         username (str): The username to login with
@@ -74,12 +72,12 @@ def create_ssh_client(username: str, hostname: str, port: int = 22) -> paramiko.
 
 
 def ssh_login_silent(username: str, hostname: str) -> paramiko.SSHClient:
-    """
-    Logs into a remote server using SSH on port 22
+    """Logs into a remote server using SSH on port 22.
 
     Args:
         username (str): The username to login with
         hostname (str): The hostname to connect to (default is COULSON_HOSTNAME)
+
     Returns:
         paramiko.SSHClient: The SSH client
     Raises:
@@ -92,8 +90,7 @@ def ssh_login_silent(username: str, hostname: str) -> paramiko.SSHClient:
 
 
 def sftp_exists(sftp: paramiko.SFTPClient, path: Path) -> bool:
-    """
-    Checks if a file or directory exists on the remote server
+    """Checks if a file or directory exists on the remote server.
 
     Args:
         sftp: An open sftp connection
@@ -109,8 +106,9 @@ def sftp_exists(sftp: paramiko.SFTPClient, path: Path) -> bool:
 
 
 def land_directory(sftp: paramiko.SFTPClient, remote_path: Path) -> None:
-    """
-    Makes a directory and all parent directories on the remote server and changes to that directory
+    """Makes a directory and all parent directories on the remote server.
+
+    Also changes to that directory
 
     Args:
         sftp: An open sftp connection
@@ -127,20 +125,19 @@ def land_directory(sftp: paramiko.SFTPClient, remote_path: Path) -> None:
         return
     try:
         sftp.chdir(remote_path.as_posix())
-    except IOError:
+    except OSError:
         dirname = remote_path.parent
         basename = remote_path.name
         land_directory(sftp, dirname)
         try:
             sftp.mkdir(basename)
             sftp.chdir(basename)
-        except IOError:
-            raise IOError(f"Could not make remote directory {remote_path}, check permissions")
+        except OSError:
+            raise OSError(f"Could not make remote directory {remote_path}, check permissions")
 
 
-def receive_batches(username: str, hostname: str, output_path: Path, secondary_output_path: Optional[Path] = None) -> None:
-    """
-    Receives batches from the host, deleting batch files and empty batch folders along the way
+def receive_batches(username: str, hostname: str, output_path: Path, secondary_output_path: Path | None = None) -> None:
+    """Receives batches from the host, deleting batch files and empty batch folders along the way.
 
     Args:
         username (str): username to log in to host
@@ -168,15 +165,15 @@ def receive_batches(username: str, hostname: str, output_path: Path, secondary_o
             print(f"Identified completion_flag file: {sub_file}")
             none_found = False
             try:
-                run_number = int(sub_file.split('_')[-3])
+                run_number = int(sub_file.split("_")[-3])
             except TypeError:
                 print(f"TypeError while extracting integer from {sub_file}")
                 return
-            batch_name = '_'.join(sub_file.split('_')[:-4])
+            batch_name = "_".join(sub_file.split("_")[:-4])
             zip_path = full_path.joinpath(f"{batch_name}_run_{run_number}.zip")
 
             # Check available disk space
-            total, used, free = shutil.disk_usage(output_path)
+            _total, _used, free = shutil.disk_usage(output_path)
             if free < MIN_FREE_SPACE and secondary_output_path is not None:
                 print("Switching to secondary output path due to low disk space")
                 save_path = secondary_output_path.joinpath(batch_name, f"{batch_name}_run_{run_number}.zip")

@@ -3,10 +3,10 @@ import itertools
 import multiprocessing
 import subprocess
 import time
+from collections.abc import Generator, Iterable
 from enum import Enum
 from pathlib import Path
-from typing import Any, Generator, Iterable, Optional, Type, TypeVar
-from scipy.optimize import fsolve
+from typing import Any, TypeVar
 
 import numpy as np
 from tabulate import tabulate
@@ -15,12 +15,12 @@ from .custom_types import BondSelectionProcess, BSSType, StructureType
 from .validation_utils import get_valid_int, get_valid_str
 from .var import Var
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def find_char_indexes(string: str, target_char: str, invert: bool = False) -> list[int]:
-    """
-    Finds the indexes of all occurrences of the target character in the string
+    """Finds the indexes of all occurrences of the target character in the string.
+
     Args:
         string: The string to be searched
         target_char: The character to be found
@@ -32,8 +32,8 @@ def find_char_indexes(string: str, target_char: str, invert: bool = False) -> li
 
 
 def clean_name(string: str, conversions: dict[str, str] = {"(": "", ")": "", "^": "pow", " ": "_"}) -> str:
-    """
-    Converts all occurrences of characters in the conversions dictionary to their corresponding value in the string
+    """Converts all occurrences of characters in the conversions dictionary to their corresponding value in the string.
+
     Args:
         string: The string to be cleaned
         conversions: The dictionary of characters to be converted
@@ -44,8 +44,8 @@ def clean_name(string: str, conversions: dict[str, str] = {"(": "", ")": "", "^"
 
 
 def background_process(command_array: tuple[str, ...] | list[str], silent: bool = True) -> None:
-    """
-    Starts a background process with the given command array that does not terminate when the parent process does
+    """Starts a background process with the given command array that does not terminate when the parent process does.
+
     Args:
         command_array: The command array to be run
         silent: Whether or not to suppress output from the process
@@ -56,8 +56,8 @@ def background_process(command_array: tuple[str, ...] | list[str], silent: bool 
 
 
 def child_process(command_array: tuple[str, ...] | list[str], silent: bool = True) -> None:
-    """
-    Processes the command array in a new session
+    """Processes the command array in a new session.
+
     Args:
         command_array: The command array to be run
         silent: Whether or not to suppress output from the process
@@ -68,9 +68,9 @@ def child_process(command_array: tuple[str, ...] | list[str], silent: bool = Tru
         subprocess.Popen(command_array, start_new_session=True)
 
 
-def string_to_value(value: str, expected_type: Type[Any]) -> BSSType:
-    """
-    Converts a string to a value of the expected type
+def string_to_value(value: str, expected_type: type[Any]) -> BSSType:
+    """Converts a string to a value of the expected type.
+
     Args:
         value: The value to be converted
         expected_type: The expected type of the value
@@ -82,22 +82,22 @@ def string_to_value(value: str, expected_type: Type[Any]) -> BSSType:
     """
     if expected_type == int:
         return int(value)
-    elif expected_type == float:
+    if expected_type == float:
         return float(value)
-    elif expected_type == bool:
+    if expected_type == bool:
         return value.lower() == "true"
-    elif expected_type == StructureType:
+    if expected_type == StructureType:
         return StructureType(value)
-    elif expected_type == BondSelectionProcess:
+    if expected_type == BondSelectionProcess:
         return BondSelectionProcess(value)
-    elif expected_type == str:
+    if expected_type == str:
         return value
     raise TypeError(f"Invalid expected type when trying to convert {value} to {expected_type.__name__}")
 
 
 def value_to_string(value: BSSType) -> str:
-    """
-    Converts a value to a string
+    """Converts a value to a string.
+
     Args:
         value: The value to be converted
     Returns:
@@ -105,15 +105,13 @@ def value_to_string(value: BSSType) -> str:
     """
     if isinstance(value, bool):
         return str(value).lower()
-    elif isinstance(value, Enum):
+    if isinstance(value, Enum):
         return str(value.value)
-    else:
-        return str(value)
+    return str(value)
 
 
 def generate_job_name(changing_vars: list[Var], array: list[BSSType]) -> str:
-    """
-    Generates a job name by concatenating each variable name with its given value
+    """Generates a job name by concatenating each variable name with its given value.
 
     Args:
         changing_vars: The list of variables that are being changed
@@ -128,9 +126,9 @@ def generate_job_name(changing_vars: list[Var], array: list[BSSType]) -> str:
     return clean_name(job_name[:-2])
 
 
-def select_path(path: Path, prompt: str, is_file: bool, secondary_path: Optional[Path] = None) -> Path | None:
-    """
-    Select a path to load from the given directory
+def select_path(path: Path, prompt: str, is_file: bool, secondary_path: Path | None = None) -> Path | None:
+    """Select a path to load from the given directory.
+
     Args:
         path: directory to search for paths
         is_file: if True, search for files, else search for directories
@@ -148,9 +146,9 @@ def select_path(path: Path, prompt: str, is_file: bool, secondary_path: Optional
     sorted_paths = sorted(all_paths, key=lambda p: p.stat().st_ctime, reverse=True)
     count = 1
     for path in sorted_paths:
-        if (path.is_file() if is_file else path.is_dir()):
+        if path.is_file() if is_file else path.is_dir():
             name = path.name
-            creation_date = datetime.datetime.fromtimestamp(path.stat().st_ctime).strftime('%d/%m/%Y %H:%M:%S')
+            creation_date = datetime.datetime.fromtimestamp(path.stat().st_ctime).strftime("%d/%m/%Y %H:%M:%S")
             path_array.append((count, name, creation_date))
             paths.append(path)
             count += 1
@@ -166,7 +164,7 @@ def select_path(path: Path, prompt: str, is_file: bool, secondary_path: Optional
     return paths[option - 1]
 
 
-def select_network(networks_path: Path, prompt: str, secondary_path: Optional[Path] = None) -> Path | None:
+def select_network(networks_path: Path, prompt: str, secondary_path: Path | None = None) -> Path | None:
     return select_path(networks_path, prompt, False, secondary_path)
 
 
@@ -179,8 +177,7 @@ def select_finished_batch(output_files_path: Path, prompt: str) -> Path | None:
 
 
 def get_batch_name(batches_path: Path) -> str | None:
-    """
-    Ask the user for a name for the batch
+    """Ask the user for a name for the batch.
 
     Args:
         batches_path: the path to the batches directory
@@ -190,8 +187,7 @@ def get_batch_name(batches_path: Path) -> str | None:
         UserCancelledError: if the user cancels entering a batch name
     """
     while True:
-        batch_name = get_valid_str("Enter a name for the batch ('c' to cancel)\n", forbidden_chars=[" ", "/", r"\\"],
-                                   lower=1, upper=40)
+        batch_name = get_valid_str("Enter a name for the batch ('c' to cancel)\n", forbidden_chars=[" ", "/", r"\\"], lower=1, upper=40)
         if batch_name == "c":
             return None
         if batch_name[0].isdigit():
@@ -207,9 +203,8 @@ def get_batch_name(batches_path: Path) -> str | None:
             print("A batch with that name already exists, please try again")
 
 
-def progress_tracker(iterable: Iterable[T], total: int) -> Generator[T, None, None]:
-    """
-    Writes progress to the console as the iterable is processed.
+def progress_tracker(iterable: Iterable[T], total: int) -> Generator[T]:
+    """Writes progress to the console as the iterable is processed.
 
     Args:
         iterable: The iterable to process.
@@ -223,12 +218,11 @@ def progress_tracker(iterable: Iterable[T], total: int) -> Generator[T, None, No
         yield item
         if total < 10 or i % (total // 10) == 0 or i == total:
             elapsed_time = time.time() - start
-            print(f'Processed {i}/{total} items ({i / total * 100:.0f}%). Elapsed time: {datetime.timedelta(seconds=elapsed_time)}')
+            print(f"Processed {i}/{total} items ({i / total * 100:.0f}%). Elapsed time: {datetime.timedelta(seconds=elapsed_time)}")
 
 
 def get_polygon_area_estimate(num_sides: int, side_length: float) -> float:
-    """
-    Estimates the area of a polygon with the given number of sides and side length using the formula for the area of a regular polygon
+    """Estimates the area of a polygon with the given number of sides and side length using the formula for the area of a regular polygon.
 
     Args:
         num_sides: The number of sides of the polygon
@@ -236,12 +230,11 @@ def get_polygon_area_estimate(num_sides: int, side_length: float) -> float:
     Returns:
         The estimated area of the polygon
     """
-    return (num_sides * side_length ** 2) / (4 * np.tan(np.pi / num_sides))
+    return (num_sides * side_length**2) / (4 * np.tan(np.pi / num_sides))
 
 
 def clockwise_order_coords(coords: list[np.ndarray]) -> list[np.ndarray]:
-    """
-    Orders the coordinates of a polygon in clockwise order around the center of the polygon
+    """Orders the coordinates of a polygon in clockwise order around the center of the polygon.
 
     Args:
         coords: The coordinates of the polygon
@@ -258,8 +251,8 @@ def clockwise_order_coords(coords: list[np.ndarray]) -> list[np.ndarray]:
 
 
 def get_polygon_area(coords: list[np.ndarray]) -> float:
-    """
-    Calculates the area of a polygon with the given coordinates using the Shoelace formula
+    """Calculates the area of a polygon with the given coordinates using the Shoelace formula.
+
     also known as Gauss's area formula or the surveyor's formula
 
     Args:
@@ -280,8 +273,9 @@ def get_polygon_area(coords: list[np.ndarray]) -> float:
 
 
 def dict_to_string(dictionary: dict, deliminator: str = ";", pair_deliminator: str = ":") -> str:
-    """
-    Converts a dictionary to a string with deliminators, be sure not to have strings with the deliminators included in themselves!
+    """Converts a dictionary to a string with deliminators.
+
+    Be sure not to have strings with the deliminators included in themselves!
 
     Args:
         dictionary (dict): the dictionary to convert

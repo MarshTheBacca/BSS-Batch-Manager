@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 from enum import Enum
-from typing import Type
-from .validation_utils import get_valid_int
+
 import numpy as np
-from .custom_types import StructureType, BondSelectionProcess, BSSType
+
+from .custom_types import BondSelectionProcess, BSSType, StructureType
+from .validation_utils import get_valid_int
 
 
 class InvalidThreeNumbers(Exception):
@@ -23,27 +25,23 @@ class VariationMode(Enum):
     BONDSELECTIONPROCESS = "Bond Selection Process"
     STRUCTURETYPE = "Structure Type"
 
-    def get_vary_array(self, lower: int | float = float("-inf"),
-                       upper: int | float = float("inf"),
-                       round_nums: bool = False) -> list[BSSType]:
-        handlers = {VariationMode.STARTENDSTEP: self._handle_start_end_step,
-                    VariationMode.STARTENDNUM: self._handle_start_end_num,
-                    VariationMode.NUMS: self._handle_nums,
-                    VariationMode.ANYSTRING: self._handle_any_string,
-                    VariationMode.BOOLEAN: self._handle_boolean,
-                    VariationMode.BONDSELECTIONPROCESS: self._handle_bond_selection_process,
-                    VariationMode.STRUCTURETYPE: self._handle_structure_type}
+    def get_vary_array(self, lower: float = float("-inf"), upper: float = float("inf"), round_nums: bool = False) -> list[BSSType]:
+        handlers = {
+            VariationMode.STARTENDSTEP: self._handle_start_end_step,
+            VariationMode.STARTENDNUM: self._handle_start_end_num,
+            VariationMode.NUMS: self._handle_nums,
+            VariationMode.ANYSTRING: self._handle_any_string,
+            VariationMode.BOOLEAN: self._handle_boolean,
+            VariationMode.BONDSELECTIONPROCESS: self._handle_bond_selection_process,
+            VariationMode.STRUCTURETYPE: self._handle_structure_type,
+        }
         handler = handlers.get(self)
         if handler:
             return handler(lower, upper, round_nums)
-        else:
-            valid_modes = ', '.join(mode.name for mode in VariationMode)
-            raise ValueError(f"Invalid variation mode: {self}. Valid modes are: {valid_modes}")
+        valid_modes = ", ".join(mode.name for mode in VariationMode)
+        raise ValueError(f"Invalid variation mode: {self}. Valid modes are: {valid_modes}")
 
-    def _check_in_range_and_round(self, values: list[int | float],
-                                  round_nums: bool = False,
-                                  lower: int | float = float("-inf"),
-                                  upper: int | float = float("inf")) -> list[int | float]:
+    def _check_in_range_and_round(self, values: list[int | float], round_nums: bool = False, lower: float = float("-inf"), upper: float = float("inf")) -> list[int | float]:
         if round_nums:
             values = [round(value) for value in values]
         if not all(lower <= value <= upper for value in values):
@@ -51,8 +49,7 @@ class VariationMode(Enum):
         return values
 
     def _get_3_nums(self, prompt: str) -> tuple[float, float, float]:
-        """
-        Gets 3 numbers from the user, separated by commas
+        """Gets 3 numbers from the user, separated by commas.
 
         Args:
             prompt: str: The prompt to display to the user
@@ -69,9 +66,7 @@ class VariationMode(Enum):
         except ValueError:
             raise InvalidThreeNumbers("Invalid input, ensure all values are numbers")
 
-    def _handle_start_end_step(self, lower: int | float = float("-inf"),
-                               upper: int | float = float("inf"),
-                               round_nums: bool = False) -> list[float]:
+    def _handle_start_end_step(self, lower: float = float("-inf"), upper: float = float("inf"), round_nums: bool = False) -> list[float]:
         while True:
             try:
                 start, end, step = self._get_3_nums("Enter start, end, and step separated by commas\n")
@@ -92,9 +87,7 @@ class VariationMode(Enum):
             except OutOfRangeError as e:
                 print(e)
 
-    def _handle_start_end_num(self, lower: int | float = float("-inf"),
-                              upper: int | float = float("inf"),
-                              round_nums: bool = False) -> list[float]:
+    def _handle_start_end_num(self, lower: float = float("-inf"), upper: float = float("inf"), round_nums: bool = False) -> list[float]:
         while True:
             try:
                 start, end, num = self._get_3_nums("Enter start, end, and number of steps separated by commas\n")
@@ -116,9 +109,7 @@ class VariationMode(Enum):
             except OutOfRangeError as e:
                 print(e)
 
-    def _handle_nums(self, lower: int | float = float("-inf"),
-                     upper: int | float = float("inf"),
-                     round_nums: bool = False) -> list[float]:
+    def _handle_nums(self, lower: float = float("-inf"), upper: float = float("inf"), round_nums: bool = False) -> list[float]:
         while True:
             answer = input("Enter numbers separated by commas\n")
             try:
@@ -154,8 +145,8 @@ class VariationMode(Enum):
     def _handle_structure_type(self, _1, _2, _3) -> list[StructureType]:
         return self._handle_enum_selection(StructureType)
 
-    def _handle_enum_selection(self, enum_class: Type[Enum]) -> list[Enum]:
-        selected_values = {mode: False for mode in enum_class.__members__.values()}
+    def _handle_enum_selection(self, enum_class: type[Enum]) -> list[Enum]:
+        selected_values = dict.fromkeys(enum_class.__members__.values(), False)
         confirm_num = len(enum_class) + 1
         while True:
             prompt: str = "Please select the values you would like to add to your vary array\n"

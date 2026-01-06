@@ -5,24 +5,25 @@ import time
 from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
-from typing import Callable, Generator, Iterable, Optional, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import numpy as np
 from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from .introduce_defects.utils.bss_data import BSSData
 from .job import Job
 from .other_utils import clean_name
 from .validation_utils import confirm
-from .bss_output_data import BSSOutputData
 
-T = TypeVar('T')
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Iterable
+
+T = TypeVar("T")
 
 RELATIVE_ENERGY = -29400 / 392  # Energy of a perfect network (E_h / node)
 
 
-def progress_tracker(iterable: Iterable[T]) -> Generator[T, None, None]:
+def progress_tracker(iterable: Iterable[T]) -> Generator[T]:
     total = len(iterable)
     start = time.time()
 
@@ -30,7 +31,7 @@ def progress_tracker(iterable: Iterable[T]) -> Generator[T, None, None]:
         yield item
         if total < 10 or i % (total // 10) == 0 or i == total:
             elapsed_time = time.time() - start
-            print(f'Processed {i}/{total} items ({i / total * 100:.0f}%). Elapsed time: {elapsed_time:.2f} seconds.')
+            print(f"Processed {i}/{total} items ({i / total * 100:.0f}%). Elapsed time: {elapsed_time:.2f} seconds.")
 
 
 def track_progress(func: Callable[..., Iterable[T]]) -> Callable[..., list[T]]:
@@ -39,8 +40,8 @@ def track_progress(func: Callable[..., Iterable[T]]) -> Callable[..., list[T]]:
         result = func(*args, **kwargs)
         if isinstance(result, (list, set, tuple, dict, str, Path)):
             return list(progress_tracker(result))
-        else:
-            return result
+        return result
+
     return wrapper
 
 
@@ -54,7 +55,7 @@ class BatchOutputData:
     name: str
     path: Path
     initial_network: BSSData
-    run_number: Optional[int] = None
+    run_number: int | None = None
 
     def __post_init__(self) -> None:
         self.jobs_path = self.path.joinpath("jobs")
@@ -66,9 +67,8 @@ class BatchOutputData:
         initial_network = BSSData.from_files(path.joinpath("initial_network"))
         return BatchOutputData(name, path, initial_network, run_number)
 
-    def iterjobs(self, track_progress: bool = True) -> Generator[Job, None, None]:
-        """
-        Iterates over all jobs in the batch
+    def iterjobs(self, track_progress: bool = True) -> Generator[Job]:
+        """Iterates over all jobs in the batch.
 
         Args:
             track_progress: Whether or not to print progress updates in 10% increments
@@ -83,14 +83,13 @@ class BatchOutputData:
             yield Job.from_files(job_path, self.path.joinpath("initial_network", "fixed_rings.txt"))
 
     def get_any_job(self) -> Job:
-        """
-        Gets any job in the batch
-        """
+        """Gets any job in the batch"""
         return next(self.iterjobs(False))
 
-    def create_images(self, save_path: Optional[Path] = None, seed_skip: bool = False, refresh: bool = False) -> None:
-        """
-        Creates an image of each job in the batch, skipping networks that have already had an image created
+    def create_images(self, save_path: Path | None = None, seed_skip: bool = False, refresh: bool = False) -> None:
+        """Creates an image of each job in the batch.
+
+        Skips networks that have already had an image created
         and have not been updated since the image creation
 
         Args:
@@ -115,13 +114,12 @@ class BatchOutputData:
             covered_sections.add(non_seed_vars)
             image = existing_images.get(job.name)
             network_path = job.path.joinpath("output_files")
-            if image and image.stat().st_mtime > max(file.stat().st_mtime for file in network_path.glob('**/*') if file.is_file()):
+            if image and image.stat().st_mtime > max(file.stat().st_mtime for file in network_path.glob("**/*") if file.is_file()):
                 continue
             job.create_image(save_path.joinpath(f"{clean_name(job.name)}.svg"))
 
     def get_radial_distributions(self, refresh: bool = False) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Gets the radial distribution of the batch
+        """Gets the radial distribution of the batch.
 
         Args:
             refresh: Whether or not to refresh the data from scratch
@@ -153,8 +151,7 @@ class BatchOutputData:
         return radii, densities_array
 
     def plot_radial_distribution(self, refresh: bool = False) -> None:
-        """
-        Plots the radial distribution of the batch (data for each job will be saved in the job's path)
+        """Plots the radial distribution of the batch (data for each job will be saved in the job's path).
 
         Args:
             refresh (bool): Whether or not to refresh the data from scratch
@@ -169,15 +166,14 @@ class BatchOutputData:
         ax.set_xlabel("Radius (Bohr Radii)")
         ax.set_ylabel("Base Node Density")
         ax.set_title("Radial distribution")
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.xaxis.set_ticks_position("bottom")
+        ax.yaxis.set_ticks_position("left")
         ax.set_xlim(left=0)
         ax.set_ylim(bottom=0)
 
-    def get_ring_size_distribution(self, fixed_ring_center: bool = True,
-                                   refresh: bool = False, bin_size: Optional[float] = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_ring_size_distribution(self, fixed_ring_center: bool = True, refresh: bool = False, bin_size: float | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         # Try to get existing data to save computation time
         info_path = self.path.joinpath("ring_size_distribution.txt")
         if not refresh:
@@ -219,8 +215,7 @@ class BatchOutputData:
         return np.array(radii), np.array(avg_ring_sizes), np.array(std_dev_ring_sizes)
 
     def plot_ring_size_distribution(self, fixed_ring_center: bool = True, refresh: bool = False) -> None:
-        """
-        Plots the ring size distribution of the batch (data for each job will be saved in the job's path)
+        """Plots the ring size distribution of the batch (data for each job will be saved in the job's path).
 
         Args:
             fixed_ring_center: Whether or not to use the fixed ring center
@@ -233,17 +228,15 @@ class BatchOutputData:
         ax.set_xlabel("Radius (Bohr Radii)")
         ax.set_ylabel("Average Ring Size")
         ax.set_title("Ring size distribution")
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.xaxis.set_ticks_position("bottom")
+        ax.yaxis.set_ticks_position("left")
         ax.set_xlim(left=0)
         ax.set_ylim(bottom=0)
 
     def plot_energy_vs_temperatures(self):
-        """
-        Plots the energy of the jobs as a function of the annealing and thermalising temperatures
-        """
+        """Plots the energy of the jobs as a function of the annealing and thermalising temperatures."""
         annealing_temps = []
         thermalising_temps = []
         energies = []
@@ -253,12 +246,12 @@ class BatchOutputData:
             energies.append(job.energy)
 
         fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        scatter = ax.scatter(annealing_temps, thermalising_temps, energies, c=energies, cmap='viridis')
+        ax = fig.add_subplot(111, projection="3d")
+        scatter = ax.scatter(annealing_temps, thermalising_temps, energies, c=energies, cmap="viridis")
         ax.set_xlabel("Annealing Temperature")
         ax.set_ylabel("Thermalising Temperature")
         ax.set_zlabel("Energy")
         ax.set_title("Energy vs. Annealing and Thermalising Temperatures")
-        fig.colorbar(scatter, ax=ax, label='Energy')
+        fig.colorbar(scatter, ax=ax, label="Energy")
 
         plt.show()

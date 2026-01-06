@@ -1,13 +1,8 @@
-from typing import Tuple, Optional
 import sys
 
 
-def get_valid_int(prompt: str,
-                  lower: float | int = float("-inf"),
-                  upper: float | int = float("inf"),
-                  exit_string: Optional[str] = None) -> int | None:
-    """
-    Obtains a valid integer from the user within a given range
+def get_valid_int(prompt: str, lower: float = float("-inf"), upper: float = float("inf"), exit_string: str | None = None) -> int | None:
+    """Obtains a valid integer from the user within a given range.
 
     Args:
         prompt (str): The prompt to display to the user
@@ -33,14 +28,8 @@ def get_valid_int(prompt: str,
         return answer
 
 
-def get_valid_str(prompt: str,
-                  allowed_chars: Optional[list[str]] = None,
-                  forbidden_chars: Optional[list[str]] = None,
-                  lower: int = 0,
-                  upper: int = sys.maxsize,
-                  verbose: bool = True) -> str:
-    """
-    Gets a valid string from the user
+def get_valid_str(prompt: str, allowed_chars: list[str] | None = None, forbidden_chars: list[str] | None = None, lower: int = 0, upper: int = sys.maxsize, verbose: bool = True) -> str:
+    """Gets a valid string from the user.
 
     Args:
         prompt (str): The prompt to display to the user
@@ -70,10 +59,8 @@ def get_valid_str(prompt: str,
         return string
 
 
-def confirm(prompt: str = "Are you sure? [y,n]\n",
-            answers: Tuple[str, str] = ("y", "n")) -> bool:
-    """
-    Asks the user for confirmation
+def confirm(prompt: str = "Are you sure? [y,n]\n", answers: tuple[str, str] = ("y", "n")) -> bool:
+    """Asks the user for confirmation.
 
     Args:
         prompt (str): The prompt to display to the user
@@ -91,6 +78,6 @@ def confirm(prompt: str = "Are you sure? [y,n]\n",
         conf = input(prompt).lower()
         if conf == answers[0]:
             return True
-        elif conf == answers[1]:
+        if conf == answers[1]:
             return False
         print("That is not a valid answer")
